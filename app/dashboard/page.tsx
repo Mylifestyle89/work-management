@@ -13,9 +13,9 @@ import {
 import {
   formatCurrency,
   formatDate,
-  escapeCsvValue,
   createId,
 } from "@/lib/dashboard/utils";
+import * as XLSX from "xlsx";
 import {
   Sidebar,
   Header,
@@ -358,43 +358,42 @@ export default function DashboardPage() {
     setForm(initialFormState);
   };
 
-  const exportCsv = (tasksToExport: Task[] = tasks) => {
+  const exportExcel = (tasksToExport: Task[] = tasks) => {
     const headers = [
-      "Tên công việc",
-      "Loại nghiệp vụ",
-      "Ma trận",
+      "Tiêu đề",
+      "Ô",
+      "Loại",
       "Ghi chú",
-      "Deadline",
-      "Ngày tạo",
+      "Hạn",
       "Giải ngân",
-      "Phí dịch vụ",
+      "Phí DV",
       "Thu nợ",
-      "Huy động vốn",
+      "Huy động",
+      "Trạng thái",
+      "Hoàn thành",
+      "Lưu trữ",
+      "Tạo lúc",
     ];
     const rows = tasksToExport.map((task) => [
       task.title,
-      task.type,
       task.quadrant,
+      task.type,
       task.note ?? "",
       task.deadline ? formatDate(task.deadline) : "",
+      task.amountDisbursement != null ? formatCurrency(task.amountDisbursement) : "",
+      task.serviceFee != null ? formatCurrency(task.serviceFee) : "",
+      task.amountRecovery != null ? formatCurrency(task.amountRecovery) : "",
+      task.amountMobilized != null ? formatCurrency(task.amountMobilized) : "",
+      task.completed ? "Hoàn thành" : "Đang xử lý",
+      task.completedAt ? formatDate(task.completedAt) : "",
+      task.archivedAt ? formatDate(task.archivedAt) : "",
       formatDate(task.createdAt),
-      task.amountDisbursement ? String(task.amountDisbursement) : "",
-      task.serviceFee ? String(task.serviceFee) : "",
-      task.amountRecovery ? String(task.amountRecovery) : "",
-      task.amountMobilized ? String(task.amountMobilized) : "",
     ]);
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((cell) => escapeCsvValue(cell)).join(","))
-      .join("\n");
-    const blob = new Blob([`\uFEFF${csvContent}`], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `cong-viec-${formatDate(new Date())}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Công việc");
+    const fileName = `cong-viec-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
   };
 
   const exportPdf = (tasksToExport: Task[] = tasks) => {
@@ -513,7 +512,7 @@ export default function DashboardPage() {
         onClose={() => setIsHistoryOpen(false)}
         tasks={historyTasks}
         loading={historyLoading}
-        onExportCsv={() => exportCsv(historyTasks)}
+        onExportExcel={() => exportExcel(historyTasks)}
         onExportPdf={() => exportPdf(historyTasks)}
       />
 
