@@ -17,8 +17,9 @@ model Task {
   serviceFee         Int?
   amountRecovery     Int?
   amountMobilized    Int?
-  completed          Boolean  @default(false)
+  completed          Boolean   @default(false)
   completedAt        DateTime?
-  position           Int      @default(0)
-  createdAt          DateTime @default(now())
+  archivedAt         DateTime?
+  position           Int       @default(0)
+  createdAt          DateTime  @default(now())
 }

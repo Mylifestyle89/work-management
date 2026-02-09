@@ -44,7 +44,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (payload.quadrant) {
       const maxPosition = await prisma.task.aggregate({
-        where: { quadrant: payload.quadrant },
+        where: { quadrant: payload.quadrant, archivedAt: null },
         _max: { position: true },
       });
       data.quadrant = payload.quadrant;
@@ -57,7 +57,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         ...data,
       },
     });
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      ...updated,
+      archivedAt: updated.archivedAt?.toISOString() ?? null,
+      completedAt: updated.completedAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+      deadline: updated.deadline?.toISOString() ?? null,
+    });
   } catch {
     return NextResponse.json(
       { message: "Không tìm thấy công việc." },
@@ -104,7 +110,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
         amountMobilized: payload.amountMobilized ?? null,
       },
     });
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      ...updated,
+      archivedAt: updated.archivedAt?.toISOString() ?? null,
+      completedAt: updated.completedAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+      deadline: updated.deadline?.toISOString() ?? null,
+    });
   } catch {
     return NextResponse.json(
       { message: "Không tìm thấy công việc." },
