@@ -2,6 +2,7 @@ export { Sidebar } from "./Sidebar";
 export { Header } from "./Header";
 export { ThemeToggle } from "./ThemeToggle";
 export { ProgressCards } from "./ProgressCards";
+export { TargetEditModal } from "./TargetEditModal";
 export { OverviewSection } from "./OverviewSection";
 export { TaskChart } from "./TaskChart";
 export { TaskCard } from "./TaskCard";

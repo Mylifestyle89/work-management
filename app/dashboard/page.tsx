@@ -7,8 +7,11 @@ import {
   type Quadrant,
   type TargetKey,
   type TargetValues,
+  type MonthlyTargetValues,
   defaultTargets,
+  defaultMonthlyTargets,
   TARGETS_STORAGE_KEY,
+  MONTHLY_TARGETS_STORAGE_KEY,
 } from "@/lib/dashboard/types";
 import {
   formatCurrency,
@@ -20,6 +23,7 @@ import {
   Sidebar,
   Header,
   ProgressCards,
+  TargetEditModal,
   OverviewSection,
   TaskChart,
   EisenhowerSection,
@@ -51,6 +55,32 @@ type TasksResponse = {
   };
 };
 
+const summarizeTotals = (items: Task[]) => {
+  const totalDisbursement = items.reduce(
+    (sum, task) => sum + (task.amountDisbursement ?? 0),
+    0
+  );
+  const totalRecovery = items.reduce(
+    (sum, task) => sum + (task.amountRecovery ?? 0),
+    0
+  );
+  const totalMobilized = items.reduce(
+    (sum, task) => sum + (task.amountMobilized ?? 0),
+    0
+  );
+  const totalServiceFee = items.reduce(
+    (sum, task) => sum + (task.serviceFee ?? 0),
+    0
+  );
+  return {
+    totalDisbursement,
+    totalRecovery,
+    totalMobilized,
+    totalServiceFee,
+    netOutstanding: totalDisbursement - totalRecovery,
+  };
+};
+
 export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [totalsFromApi, setTotalsFromApi] = useState<TasksResponse["totals"] | null>(null);
@@ -58,6 +88,13 @@ export default function DashboardPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [form, setForm] = useState<TaskFormState>(initialFormState);
   const [targetValues, setTargetValues] = useState<TargetValues>(defaultTargets);
+  const [monthlyTargets, setMonthlyTargets] =
+    useState<MonthlyTargetValues>(defaultMonthlyTargets);
+  const [targetForm, setTargetForm] = useState({
+    monthlyTarget: "",
+    annualTarget: "",
+  });
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<TargetKey | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -115,59 +152,126 @@ export default function DashboardPage() {
     localStorage.setItem(TARGETS_STORAGE_KEY, JSON.stringify(targetValues));
   }, [targetValues]);
 
+  useEffect(() => {
+    const savedMonthlyTargets = localStorage.getItem(MONTHLY_TARGETS_STORAGE_KEY);
+    if (!savedMonthlyTargets) return;
+    try {
+      const parsed = JSON.parse(savedMonthlyTargets) as MonthlyTargetValues;
+      if (
+        typeof parsed?.outstanding === "number" &&
+        typeof parsed?.mobilized === "number" &&
+        typeof parsed?.serviceFee === "number"
+      ) {
+        setMonthlyTargets(parsed);
+      }
+    } catch (error) {
+      console.error("Không thể tải chỉ tiêu tháng", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      MONTHLY_TARGETS_STORAGE_KEY,
+      JSON.stringify(monthlyTargets)
+    );
+  }, [monthlyTargets]);
+
   const totals = useMemo(() => {
     if (totalsFromApi) return totalsFromApi;
-    const totalDisbursement = tasks.reduce(
-      (sum, task) => sum + (task.amountDisbursement ?? 0),
-      0
-    );
-    const totalRecovery = tasks.reduce(
-      (sum, task) => sum + (task.amountRecovery ?? 0),
-      0
-    );
-    const totalMobilized = tasks.reduce(
-      (sum, task) => sum + (task.amountMobilized ?? 0),
-      0
-    );
-    const totalServiceFee = tasks.reduce(
-      (sum, task) => sum + (task.serviceFee ?? 0),
-      0
-    );
-    return {
-      totalDisbursement,
-      totalRecovery,
-      totalMobilized,
-      totalServiceFee,
-      netOutstanding: totalDisbursement - totalRecovery,
-    };
+    return summarizeTotals(tasks);
   }, [totalsFromApi, tasks]);
 
-  const progressCards = useMemo(
-    () => [
+  const progressSnapshot = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const yearTasks: Task[] = [];
+    const monthTasks: Task[] = [];
+
+    tasks.forEach((task) => {
+      const createdAt = new Date(task.createdAt);
+      if (Number.isNaN(createdAt.getTime())) return;
+      if (createdAt.getFullYear() !== currentYear) return;
+      yearTasks.push(task);
+      if (createdAt.getMonth() === currentMonth) {
+        monthTasks.push(task);
+      }
+    });
+
+    return {
+      monthLabel: `Tháng ${currentMonth + 1}`,
+      yearTotals: summarizeTotals(yearTasks),
+      monthTotals: summarizeTotals(monthTasks),
+    };
+  }, [tasks]);
+
+  const progressCards = useMemo(() => {
+    return [
       {
         key: "outstanding" as const,
         title: "Dư nợ thuần",
         icon: Banknote,
-        value: totals.netOutstanding,
+        value: progressSnapshot.yearTotals.netOutstanding,
         target: targetValues.outstanding,
+        monthActual: progressSnapshot.monthTotals.netOutstanding,
+        monthTarget: monthlyTargets.outstanding,
+        yearActual: progressSnapshot.yearTotals.netOutstanding,
       },
       {
         key: "mobilized" as const,
         title: "Huy động vốn",
         icon: Target,
-        value: totals.totalMobilized,
+        value: progressSnapshot.yearTotals.totalMobilized,
         target: targetValues.mobilized,
+        monthActual: progressSnapshot.monthTotals.totalMobilized,
+        monthTarget: monthlyTargets.mobilized,
+        yearActual: progressSnapshot.yearTotals.totalMobilized,
       },
       {
         key: "serviceFee" as const,
         title: "Phí dịch vụ",
         icon: BadgeDollarSign,
-        value: totals.totalServiceFee,
+        value: progressSnapshot.yearTotals.totalServiceFee,
         target: targetValues.serviceFee,
+        monthActual: progressSnapshot.monthTotals.totalServiceFee,
+        monthTarget: monthlyTargets.serviceFee,
+        yearActual: progressSnapshot.yearTotals.totalServiceFee,
       },
-    ],
-    [totals, targetValues]
-  );
+    ];
+  }, [monthlyTargets, progressSnapshot, targetValues]);
+
+  const currentTargetTitle = useMemo(() => {
+    if (!editingTarget) return "";
+    if (editingTarget === "outstanding") return "Dư nợ thuần";
+    if (editingTarget === "mobilized") return "Huy động vốn";
+    return "Phí dịch vụ";
+  }, [editingTarget]);
+
+  const handleTargetModalSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingTarget) return;
+
+    const trimmedMonthly = targetForm.monthlyTarget.trim();
+    const trimmedAnnual = targetForm.annualTarget.trim();
+
+    if (trimmedAnnual) {
+      const nextValue = Number(trimmedAnnual);
+      if (!Number.isNaN(nextValue)) {
+        setTargetValues((prev) => ({ ...prev, [editingTarget]: nextValue }));
+      }
+    }
+
+    if (trimmedMonthly) {
+      const nextValue = Number(trimmedMonthly);
+      if (!Number.isNaN(nextValue)) {
+        setMonthlyTargets((prev) => ({ ...prev, [editingTarget]: nextValue }));
+      }
+    }
+
+    setTargetForm({ monthlyTarget: "", annualTarget: "" });
+    setEditingTarget(null);
+    setIsTargetModalOpen(false);
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -477,10 +581,12 @@ export default function DashboardPage() {
 
           <ProgressCards
             cards={progressCards}
-            editingTarget={editingTarget}
-            onEditingTargetChange={setEditingTarget}
-            targetValues={targetValues}
-            onTargetValuesChange={setTargetValues}
+            monthLabel={progressSnapshot.monthLabel}
+            onOpenTargetModal={(key) => {
+              setEditingTarget(key);
+              setTargetForm({ monthlyTarget: "", annualTarget: "" });
+              setIsTargetModalOpen(true);
+            }}
           />
 
           <section
@@ -527,6 +633,26 @@ export default function DashboardPage() {
         onSubmit={handleTaskModalSubmit}
         taskCount={tasks.length}
         editingTaskId={editingTaskId}
+      />
+
+      <TargetEditModal
+        isOpen={isTargetModalOpen}
+        onClose={() => {
+          setIsTargetModalOpen(false);
+          setTargetForm({ monthlyTarget: "", annualTarget: "" });
+          setEditingTarget(null);
+        }}
+        onSubmit={handleTargetModalSubmit}
+        title={currentTargetTitle}
+        monthlyTarget={
+          editingTarget ? monthlyTargets[editingTarget] : 0
+        }
+        annualTarget={editingTarget ? targetValues[editingTarget] : 0}
+        form={targetForm}
+        onChange={(updates) =>
+          setTargetForm((prev) => ({ ...prev, ...updates }))
+        }
+        targetKey={editingTarget}
       />
     </div>
   );

@@ -98,6 +98,7 @@ export const quadrants: QuadrantConfig[] = [
 ];
 
 export const TARGETS_STORAGE_KEY = "credit_targets_v1";
+export const MONTHLY_TARGETS_STORAGE_KEY = "credit_targets_monthly_v1";
 
 export type TargetKey = "outstanding" | "mobilized" | "serviceFee";
 
@@ -111,6 +112,14 @@ export const defaultTargets: TargetValues = {
   outstanding: 4_000_000_000,
   mobilized: 2_500_000_000,
   serviceFee: 250_000_000,
+};
+
+export type MonthlyTargetValues = TargetValues;
+
+export const defaultMonthlyTargets: MonthlyTargetValues = {
+  outstanding: defaultTargets.outstanding / 12,
+  mobilized: defaultTargets.mobilized / 12,
+  serviceFee: defaultTargets.serviceFee / 12,
 };
 
 export const typeBadgeMap: Record<TaskType, string> = {
