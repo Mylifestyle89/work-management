@@ -11,8 +11,18 @@ export async function DELETE(_: Request, { params }: RouteParams) {
   const { id } = await params;
 
   try {
-    await prisma.task.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    // Ẩn khỏi danh sách chính nhưng giữ trong DB để báo cáo/thống kê (Lịch sử vẫn hiển thị)
+    const updated = await prisma.task.update({
+      where: { id },
+      data: { archivedAt: new Date() },
+    });
+    return NextResponse.json({
+      ...updated,
+      archivedAt: updated.archivedAt?.toISOString() ?? null,
+      completedAt: updated.completedAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+      deadline: updated.deadline?.toISOString() ?? null,
+    });
   } catch {
     return NextResponse.json(
       { message: "Không tìm thấy công việc." },

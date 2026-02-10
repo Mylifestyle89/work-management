@@ -2,6 +2,7 @@
 
 import type { Quadrant, TaskType } from "@/lib/dashboard/types";
 import { quadrants, taskTypes } from "@/lib/dashboard/types";
+import { formatThousand, digitsOnly } from "@/lib/dashboard/utils";
 
 export type TaskFormState = {
   title: string;
@@ -154,14 +155,14 @@ export function TaskModal({
                 </label>
                 <input
                   id="amount-disbursement"
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
                   className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                  value={form.amountDisbursement}
+                  value={formatThousand(form.amountDisbursement)}
                   onChange={(e) =>
-                    onChange({ amountDisbursement: e.target.value })
+                    onChange({ amountDisbursement: digitsOnly(e.target.value) })
                   }
-                  placeholder="Ví dụ: 500000000"
+                  placeholder="Ví dụ: 500.000.000"
                 />
               </div>
               <div>
@@ -173,12 +174,12 @@ export function TaskModal({
                 </label>
                 <input
                   id="service-fee"
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
                   className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                  value={form.serviceFee}
-                  onChange={(e) => onChange({ serviceFee: e.target.value })}
-                  placeholder="Ví dụ: 3000000"
+                  value={formatThousand(form.serviceFee)}
+                  onChange={(e) => onChange({ serviceFee: digitsOnly(e.target.value) })}
+                  placeholder="Ví dụ: 3.000.000"
                 />
               </div>
             </>
@@ -194,12 +195,12 @@ export function TaskModal({
               </label>
               <input
                 id="amount-recovery"
-                type="number"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                value={form.amountRecovery}
-                onChange={(e) => onChange({ amountRecovery: e.target.value })}
-                placeholder="Ví dụ: 200000000"
+                value={formatThousand(form.amountRecovery)}
+                onChange={(e) => onChange({ amountRecovery: digitsOnly(e.target.value) })}
+                placeholder="Ví dụ: 200.000.000"
               />
             </div>
           )}
@@ -214,14 +215,14 @@ export function TaskModal({
               </label>
               <input
                 id="amount-mobilized"
-                type="number"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                value={form.amountMobilized}
+                value={formatThousand(form.amountMobilized)}
                 onChange={(e) =>
-                  onChange({ amountMobilized: e.target.value })
+                  onChange({ amountMobilized: digitsOnly(e.target.value) })
                 }
-                placeholder="Ví dụ: 150000000"
+                placeholder="Ví dụ: 150.000.000"
               />
             </div>
           )}

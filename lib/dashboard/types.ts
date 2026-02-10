@@ -99,6 +99,21 @@ export const quadrants: QuadrantConfig[] = [
 
 export const TARGETS_STORAGE_KEY = "credit_targets_v1";
 export const MONTHLY_TARGETS_STORAGE_KEY = "credit_targets_monthly_v1";
+export const OUTSTANDING_EXTRAS_STORAGE_KEY = "credit_outstanding_extras_v1";
+export const OUTSTANDING_PREVIOUS_DAY_KEY =
+  "credit_outstanding_prev_day_v1";
+
+export type OutstandingExtras = {
+  startOfDay: number;
+  startOfMonth: number;
+  startOfYear: number;
+};
+
+export const defaultOutstandingExtras: OutstandingExtras = {
+  startOfDay: 0,
+  startOfMonth: 0,
+  startOfYear: 0,
+};
 
 export type TargetKey = "outstanding" | "mobilized" | "serviceFee";
 

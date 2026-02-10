@@ -5,6 +5,16 @@ export const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+/** Chuỗi chỉ chữ số (để lưu state input). */
+export const digitsOnly = (value: string) => value.replace(/\D/g, "");
+
+/** Định dạng số với dấu phân tách hàng nghìn (1.000.000). */
+export const formatThousand = (value: string | number | undefined | null): string => {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (digits === "") return "";
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
 export const clampPercent = (value: number) =>
   Math.min(100, Math.max(0, value));
 

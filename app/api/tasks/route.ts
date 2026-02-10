@@ -91,14 +91,15 @@ export async function POST(request: Request) {
   }
 
   const deadline = payload.deadline ? new Date(payload.deadline) : null;
-  const maxPosition = await prisma.task.aggregate({
+
+  // Công việc mới đặt ở đầu danh sách: position = 0, đẩy các task khác trong cùng ô lên 1
+  await prisma.task.updateMany({
     where: {
       quadrant: payload.quadrant,
       archivedAt: null,
     },
-    _max: { position: true },
+    data: { position: { increment: 1 } },
   });
-  const nextPosition = (maxPosition._max.position ?? 0) + 1;
 
   const task = await prisma.task.create({
     data: {
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
       amountRecovery: payload.amountRecovery ?? null,
       amountMobilized: payload.amountMobilized ?? null,
       completed: payload.completed ?? false,
-      position: nextPosition,
+      position: 0,
     },
   });
 

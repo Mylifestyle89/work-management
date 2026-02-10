@@ -8,10 +8,14 @@ import {
   type TargetKey,
   type TargetValues,
   type MonthlyTargetValues,
+  type OutstandingExtras,
   defaultTargets,
   defaultMonthlyTargets,
+  defaultOutstandingExtras,
   TARGETS_STORAGE_KEY,
   MONTHLY_TARGETS_STORAGE_KEY,
+  OUTSTANDING_EXTRAS_STORAGE_KEY,
+  OUTSTANDING_PREVIOUS_DAY_KEY,
 } from "@/lib/dashboard/types";
 import {
   formatCurrency,
@@ -86,6 +90,7 @@ export default function DashboardPage() {
   const [totalsFromApi, setTotalsFromApi] = useState<TasksResponse["totals"] | null>(null);
   const [historyTasks, setHistoryTasks] = useState<Task[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [allTasksForProgress, setAllTasksForProgress] = useState<Task[]>([]);
   const [form, setForm] = useState<TaskFormState>(initialFormState);
   const [targetValues, setTargetValues] = useState<TargetValues>(defaultTargets);
   const [monthlyTargets, setMonthlyTargets] =
@@ -93,7 +98,12 @@ export default function DashboardPage() {
   const [targetForm, setTargetForm] = useState({
     monthlyTarget: "",
     annualTarget: "",
+    startOfDay: "",
+    startOfMonth: "",
+    startOfYear: "",
   });
+  const [outstandingExtras, setOutstandingExtras] =
+    useState<OutstandingExtras>(defaultOutstandingExtras);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<TargetKey | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -118,6 +128,19 @@ export default function DashboardPage() {
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
+
+  // Luôn tải danh sách đầy đủ (bao gồm cả đã lưu trữ) để tính dư nợ & tiến độ
+  useEffect(() => {
+    fetch("/api/tasks?includeArchived=true")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: TasksResponse | null) => {
+        if (!d) return;
+        setAllTasksForProgress(d.tasks);
+      })
+      .catch(() => {
+        // ignore
+      });
+  }, []);
 
   useEffect(() => {
     if (!isHistoryOpen) return;
@@ -176,19 +199,54 @@ export default function DashboardPage() {
     );
   }, [monthlyTargets]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem(OUTSTANDING_EXTRAS_STORAGE_KEY);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as OutstandingExtras;
+      if (
+        typeof parsed?.startOfDay === "number" &&
+        typeof parsed?.startOfMonth === "number"
+      ) {
+        setOutstandingExtras({
+          ...defaultOutstandingExtras,
+          ...parsed,
+          startOfYear:
+            typeof parsed.startOfYear === "number" ? parsed.startOfYear : 0,
+        });
+      }
+    } catch (error) {
+      console.error("Không thể tải chỉ tiêu dư nợ", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      OUTSTANDING_EXTRAS_STORAGE_KEY,
+      JSON.stringify(outstandingExtras)
+    );
+  }, [outstandingExtras]);
+
   const totals = useMemo(() => {
     if (totalsFromApi) return totalsFromApi;
-    return summarizeTotals(tasks);
-  }, [totalsFromApi, tasks]);
+    const source = allTasksForProgress.length ? allTasksForProgress : tasks;
+    return summarizeTotals(source);
+  }, [allTasksForProgress, totalsFromApi, tasks]);
+
+  const todayKey = useMemo(() => {
+    const now = new Date();
+    return now.toISOString().slice(0, 10);
+  }, []);
 
   const progressSnapshot = useMemo(() => {
+    const source = allTasksForProgress.length ? allTasksForProgress : tasks;
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const yearTasks: Task[] = [];
     const monthTasks: Task[] = [];
 
-    tasks.forEach((task) => {
+    source.forEach((task) => {
       const createdAt = new Date(task.createdAt);
       if (Number.isNaN(createdAt.getTime())) return;
       if (createdAt.getFullYear() !== currentYear) return;
@@ -203,19 +261,25 @@ export default function DashboardPage() {
       yearTotals: summarizeTotals(yearTasks),
       monthTotals: summarizeTotals(monthTasks),
     };
-  }, [tasks]);
+  }, [allTasksForProgress, tasks]);
 
   const progressCards = useMemo(() => {
+    const outstandingToday =
+      outstandingExtras.startOfDay + progressSnapshot.monthTotals.netOutstanding;
+
     return [
       {
         key: "outstanding" as const,
         title: "Dư nợ thuần",
         icon: Banknote,
-        value: progressSnapshot.yearTotals.netOutstanding,
+        value: outstandingToday,
         target: targetValues.outstanding,
         monthActual: progressSnapshot.monthTotals.netOutstanding,
         monthTarget: monthlyTargets.outstanding,
         yearActual: progressSnapshot.yearTotals.netOutstanding,
+        outstandingStartOfDay: outstandingExtras.startOfDay,
+        outstandingStartOfMonth: outstandingExtras.startOfMonth,
+        outstandingStartOfYear: outstandingExtras.startOfYear,
       },
       {
         key: "mobilized" as const,
@@ -238,7 +302,51 @@ export default function DashboardPage() {
         yearActual: progressSnapshot.yearTotals.totalServiceFee,
       },
     ];
-  }, [monthlyTargets, progressSnapshot, targetValues]);
+  }, [monthlyTargets, outstandingExtras, progressSnapshot, targetValues]);
+
+  // Nếu user chưa nhập Dư nợ đầu ngày, tự động dùng Dư nợ thuần của ngày trước (nếu có lưu)
+  useEffect(() => {
+    if (outstandingExtras.startOfDay !== 0) return;
+    try {
+      const saved = localStorage.getItem(OUTSTANDING_PREVIOUS_DAY_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as {
+        date?: string;
+        outstanding?: number;
+      };
+      if (
+        parsed &&
+        typeof parsed.outstanding === "number" &&
+        parsed.date &&
+        parsed.date !== todayKey
+      ) {
+        setOutstandingExtras((prev) => ({
+          ...prev,
+          startOfDay: parsed.outstanding ?? prev.startOfDay,
+        }));
+      }
+    } catch {
+      // ignore
+    }
+  }, [outstandingExtras.startOfDay, todayKey]);
+
+  // Luôn lưu lại Dư nợ thuần hiện tại để dùng làm Dư nợ đầu ngày cho ngày tiếp theo
+  useEffect(() => {
+    const outstandingToday =
+      outstandingExtras.startOfDay + progressSnapshot.monthTotals.netOutstanding;
+    if (!Number.isFinite(outstandingToday)) return;
+    try {
+      localStorage.setItem(
+        OUTSTANDING_PREVIOUS_DAY_KEY,
+        JSON.stringify({
+          date: todayKey,
+          outstanding: outstandingToday,
+        })
+      );
+    } catch {
+      // ignore
+    }
+  }, [outstandingExtras.startOfDay, progressSnapshot.monthTotals.netOutstanding, todayKey]);
 
   const currentTargetTitle = useMemo(() => {
     if (!editingTarget) return "";
@@ -268,7 +376,25 @@ export default function DashboardPage() {
       }
     }
 
-    setTargetForm({ monthlyTarget: "", annualTarget: "" });
+    if (editingTarget === "outstanding") {
+      const trimmedStartOfDay = (targetForm.startOfDay ?? "").trim();
+      const trimmedStartOfMonth = (targetForm.startOfMonth ?? "").trim();
+      const trimmedStartOfYear = (targetForm.startOfYear ?? "").trim();
+      if (trimmedStartOfDay) {
+        const v = Number(trimmedStartOfDay);
+        if (!Number.isNaN(v)) setOutstandingExtras((prev) => ({ ...prev, startOfDay: v }));
+      }
+      if (trimmedStartOfMonth) {
+        const v = Number(trimmedStartOfMonth);
+        if (!Number.isNaN(v)) setOutstandingExtras((prev) => ({ ...prev, startOfMonth: v }));
+      }
+      if (trimmedStartOfYear) {
+        const v = Number(trimmedStartOfYear);
+        if (!Number.isNaN(v)) setOutstandingExtras((prev) => ({ ...prev, startOfYear: v }));
+      }
+    }
+
+    setTargetForm({ monthlyTarget: "", annualTarget: "", startOfDay: "", startOfMonth: "", startOfYear: "" });
     setEditingTarget(null);
     setIsTargetModalOpen(false);
   };
@@ -639,7 +765,7 @@ export default function DashboardPage() {
         isOpen={isTargetModalOpen}
         onClose={() => {
           setIsTargetModalOpen(false);
-          setTargetForm({ monthlyTarget: "", annualTarget: "" });
+          setTargetForm({ monthlyTarget: "", annualTarget: "", startOfDay: "", startOfMonth: "", startOfYear: "" });
           setEditingTarget(null);
         }}
         onSubmit={handleTargetModalSubmit}
@@ -653,6 +779,9 @@ export default function DashboardPage() {
           setTargetForm((prev) => ({ ...prev, ...updates }))
         }
         targetKey={editingTarget}
+        outstandingStartOfDay={outstandingExtras.startOfDay}
+        outstandingStartOfMonth={outstandingExtras.startOfMonth}
+        outstandingStartOfYear={outstandingExtras.startOfYear}
       />
     </div>
   );

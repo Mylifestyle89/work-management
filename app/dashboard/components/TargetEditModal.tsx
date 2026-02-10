@@ -1,8 +1,13 @@
 import type { TargetKey } from "@/lib/dashboard/types";
+import { formatThousand, digitsOnly } from "@/lib/dashboard/utils";
 
 type TargetEditFormState = {
   monthlyTarget: string;
   annualTarget: string;
+  /** Chỉ dùng khi targetKey === "outstanding" */
+  startOfDay: string;
+  startOfMonth: string;
+  startOfYear: string;
 };
 
 type TargetEditModalProps = {
@@ -15,6 +20,10 @@ type TargetEditModalProps = {
   onClose: () => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   targetKey: TargetKey | null;
+  /** Chỉ dùng khi targetKey === "outstanding" */
+  outstandingStartOfDay?: number;
+  outstandingStartOfMonth?: number;
+  outstandingStartOfYear?: number;
 };
 
 export function TargetEditModal({
@@ -27,6 +36,9 @@ export function TargetEditModal({
   onClose,
   onSubmit,
   targetKey,
+  outstandingStartOfDay = 0,
+  outstandingStartOfMonth = 0,
+  outstandingStartOfYear = 0,
 }: TargetEditModalProps) {
   if (!isOpen || !targetKey) return null;
 
@@ -58,39 +70,115 @@ export function TargetEditModal({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 grid gap-4">
-          <div>
-            <label
-              htmlFor="monthly-target"
-              className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-200"
-            >
-              Chỉ tiêu tháng
-            </label>
-            <input
-              id="monthly-target"
-              type="number"
-              min="0"
-              className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-              value={form.monthlyTarget}
-              placeholder={String(monthlyTarget)}
-              onChange={(e) => onChange({ monthlyTarget: e.target.value })}
-            />
-          </div>
+          {targetKey === "outstanding" && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="outstanding-start-day"
+                    className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-200"
+                  >
+                    Dư nợ đầu ngày
+                  </label>
+                  <input
+                    id="outstanding-start-day"
+                    type="text"
+                    inputMode="numeric"
+                    className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                    value={formatThousand(form.startOfDay)}
+                    placeholder={formatThousand(outstandingStartOfDay)}
+                    onChange={(e) => onChange({ startOfDay: digitsOnly(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="outstanding-start-month"
+                    className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-200"
+                  >
+                    Dư nợ đầu tháng
+                  </label>
+                  <input
+                    id="outstanding-start-month"
+                    type="text"
+                    inputMode="numeric"
+                    className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                    value={formatThousand(form.startOfMonth)}
+                    placeholder={formatThousand(outstandingStartOfMonth)}
+                    onChange={(e) => onChange({ startOfMonth: digitsOnly(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="outstanding-start-year"
+                    className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-200"
+                  >
+                    Dư nợ đầu năm
+                  </label>
+                  <input
+                    id="outstanding-start-year"
+                    type="text"
+                    inputMode="numeric"
+                    className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                    value={formatThousand(form.startOfYear)}
+                    placeholder={formatThousand(outstandingStartOfYear)}
+                    onChange={(e) => onChange({ startOfYear: digitsOnly(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label
+                  htmlFor="monthly-target"
+                  className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-200"
+                >
+                  Mục tiêu tháng
+                </label>
+                <input
+                  id="monthly-target"
+                  type="text"
+                  inputMode="numeric"
+                  className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  value={formatThousand(form.monthlyTarget)}
+                  placeholder={formatThousand(monthlyTarget)}
+                  onChange={(e) => onChange({ monthlyTarget: digitsOnly(e.target.value) })}
+                />
+              </div>
+            </>
+          )}
+          {targetKey !== "outstanding" && (
+            <div>
+              <label
+                htmlFor="monthly-target-other"
+                className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-200"
+              >
+                Chỉ tiêu tháng
+              </label>
+              <input
+                id="monthly-target-other"
+                type="text"
+                inputMode="numeric"
+                className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                value={formatThousand(form.monthlyTarget)}
+                placeholder={formatThousand(monthlyTarget)}
+                onChange={(e) => onChange({ monthlyTarget: digitsOnly(e.target.value) })}
+              />
+            </div>
+          )}
 
           <div>
             <label
               htmlFor="annual-target"
               className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-200"
             >
-              Chỉ tiêu năm
+              Mục tiêu năm
             </label>
             <input
               id="annual-target"
-              type="number"
-              min="0"
+              type="text"
+              inputMode="numeric"
               className="mt-2 w-full rounded-lg border border-slate-200/70 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-              value={form.annualTarget}
-              placeholder={String(annualTarget)}
-              onChange={(e) => onChange({ annualTarget: e.target.value })}
+              value={formatThousand(form.annualTarget)}
+              placeholder={formatThousand(annualTarget)}
+              onChange={(e) => onChange({ annualTarget: digitsOnly(e.target.value) })}
             />
           </div>
 
