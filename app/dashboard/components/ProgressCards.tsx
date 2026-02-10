@@ -41,20 +41,25 @@ export function ProgressCards({
         const startOfDay = card.outstandingStartOfDay ?? 0;
         const startOfMonth = card.outstandingStartOfMonth ?? 0;
         const startOfYear = card.outstandingStartOfYear ?? 0;
-        const monthDelta =
-          card.monthTarget != null ? card.monthTarget - startOfDay : 0;
-        const yearDelta =
-          card.target != null ? card.target - startOfYear : 0;
+        const monthBaseDenominator = card.monthTarget - startOfMonth;
+        const monthDenominatorOutstanding =
+          startOfDay < startOfMonth
+            ? monthBaseDenominator + Math.abs(startOfDay - startOfMonth)
+            : monthBaseDenominator;
+        const monthNumeratorOutstanding = card.monthActual;
+        const yearNumeratorOutstanding = startOfDay - startOfYear;
+        const yearDenominatorOutstanding = card.target - startOfYear;
+        const monthRemaining = monthDenominatorOutstanding - monthNumeratorOutstanding;
+        const yearRemaining = yearDenominatorOutstanding - yearNumeratorOutstanding;
         const percentMonth =
-          isOutstanding && monthDelta > 0
-            ? clampPercent((card.monthActual / monthDelta) * 100)
+          isOutstanding && monthDenominatorOutstanding > 0
+            ? clampPercent((monthNumeratorOutstanding / monthDenominatorOutstanding) * 100)
             : !isOutstanding && card.monthTarget > 0
               ? clampPercent((card.monthActual / card.monthTarget) * 100)
               : 0;
-        const yearNumeratorOutstanding = startOfDay - startOfYear;
         const percentYear =
-          isOutstanding && yearDelta > 0
-            ? clampPercent((yearNumeratorOutstanding / yearDelta) * 100)
+          isOutstanding && yearDenominatorOutstanding > 0
+            ? clampPercent((yearNumeratorOutstanding / yearDenominatorOutstanding) * 100)
             : !isOutstanding && card.target > 0
               ? clampPercent((card.yearActual / card.target) * 100)
               : 0;
@@ -132,7 +137,7 @@ export function ProgressCards({
                   <span>Tiến độ {monthLabel}</span>
                   <span className="tabular-nums">
                     {isOutstanding
-                      ? `${formatCurrency(card.monthActual)} / ${formatCurrency(monthDelta)}`
+                      ? `${formatCurrency(monthNumeratorOutstanding)} / ${formatCurrency(monthDenominatorOutstanding)}`
                       : `${formatCurrency(card.monthActual)} / ${formatCurrency(card.monthTarget)}`}
                   </span>
                 </div>
@@ -140,13 +145,16 @@ export function ProgressCards({
                 <p className={`mt-0.5 text-slate-400 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-[11px]"}`}>
                   Hoàn thành {percentMonth.toFixed(0)}%
                 </p>
+                <p className={`mt-0.5 text-slate-400 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-[11px]"}`}>
+                  Còn phải tăng {formatCurrency(Math.max(0, monthRemaining))}
+                </p>
               </div>
               <div>
                 <div className={`flex items-center justify-between text-slate-500 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-xs"}`}>
                   <span>Tiến độ năm</span>
                   <span className="tabular-nums">
                     {isOutstanding
-                      ? `${formatCurrency(yearNumeratorOutstanding)} / ${formatCurrency(yearDelta)}`
+                      ? `${formatCurrency(yearNumeratorOutstanding)} / ${formatCurrency(yearDenominatorOutstanding)}`
                       : `${formatCurrency(card.yearActual)} / ${formatCurrency(card.target)}`}
                   </span>
                 </div>
@@ -157,6 +165,9 @@ export function ProgressCards({
                 />
                 <p className={`mt-0.5 text-slate-400 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-[11px]"}`}>
                   Hoàn thành {percentYear.toFixed(0)}%
+                </p>
+                <p className={`mt-0.5 text-slate-400 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-[11px]"}`}>
+                  Còn phải tăng {formatCurrency(Math.max(0, yearRemaining))}
                 </p>
               </div>
             </div>

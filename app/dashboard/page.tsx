@@ -115,11 +115,19 @@ export default function DashboardPage() {
 
   const loadTasks = useCallback(async () => {
     try {
-      const response = await fetch("/api/tasks");
-      if (!response.ok) return;
-      const data = (await response.json()) as TasksResponse;
-      setTasks(data.tasks);
-      setTotalsFromApi(data.totals);
+      const [activeResponse, allResponse] = await Promise.all([
+        fetch("/api/tasks"),
+        fetch("/api/tasks?includeArchived=true"),
+      ]);
+      if (activeResponse.ok) {
+        const data = (await activeResponse.json()) as TasksResponse;
+        setTasks(data.tasks);
+        setTotalsFromApi(data.totals);
+      }
+      if (allResponse.ok) {
+        const data = (await allResponse.json()) as TasksResponse;
+        setAllTasksForProgress(data.tasks);
+      }
     } catch (error) {
       console.error("Không thể tải dữ liệu công việc", error);
     }
@@ -129,18 +137,6 @@ export default function DashboardPage() {
     loadTasks();
   }, [loadTasks]);
 
-  // Luôn tải danh sách đầy đủ (bao gồm cả đã lưu trữ) để tính dư nợ & tiến độ
-  useEffect(() => {
-    fetch("/api/tasks?includeArchived=true")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: TasksResponse | null) => {
-        if (!d) return;
-        setAllTasksForProgress(d.tasks);
-      })
-      .catch(() => {
-        // ignore
-      });
-  }, []);
 
   useEffect(() => {
     if (!isHistoryOpen) return;
@@ -243,29 +239,35 @@ export default function DashboardPage() {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
+    const dayTasks: Task[] = [];
     const yearTasks: Task[] = [];
     const monthTasks: Task[] = [];
 
     source.forEach((task) => {
-      const createdAt = new Date(task.createdAt);
-      if (Number.isNaN(createdAt.getTime())) return;
-      if (createdAt.getFullYear() !== currentYear) return;
+      if (!task.completedAt || !task.completed) return;
+      const taskDate = new Date(task.completedAt);
+      if (Number.isNaN(taskDate.getTime())) return;
+      if (taskDate.toISOString().slice(0, 10) === todayKey) {
+        dayTasks.push(task);
+      }
+      if (taskDate.getFullYear() !== currentYear) return;
       yearTasks.push(task);
-      if (createdAt.getMonth() === currentMonth) {
+      if (taskDate.getMonth() === currentMonth) {
         monthTasks.push(task);
       }
     });
 
     return {
       monthLabel: `Tháng ${currentMonth + 1}`,
+      dayTotals: summarizeTotals(dayTasks),
       yearTotals: summarizeTotals(yearTasks),
       monthTotals: summarizeTotals(monthTasks),
     };
-  }, [allTasksForProgress, tasks]);
+  }, [allTasksForProgress, tasks, todayKey]);
 
   const progressCards = useMemo(() => {
     const outstandingToday =
-      outstandingExtras.startOfDay + progressSnapshot.monthTotals.netOutstanding;
+      outstandingExtras.startOfDay + progressSnapshot.dayTotals.netOutstanding;
 
     return [
       {
@@ -710,7 +712,13 @@ export default function DashboardPage() {
             monthLabel={progressSnapshot.monthLabel}
             onOpenTargetModal={(key) => {
               setEditingTarget(key);
-              setTargetForm({ monthlyTarget: "", annualTarget: "" });
+              setTargetForm({
+                monthlyTarget: "",
+                annualTarget: "",
+                startOfDay: "",
+                startOfMonth: "",
+                startOfYear: "",
+              });
               setIsTargetModalOpen(true);
             }}
           />
