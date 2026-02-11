@@ -27,6 +27,8 @@ import {
   Sidebar,
   Header,
   ProgressCards,
+  LoanRateCard,
+  ReminderSection,
   TargetEditModal,
   OverviewSection,
   TaskChart,
@@ -247,6 +249,70 @@ export default function DashboardPage() {
     const now = new Date();
     return now.toISOString().slice(0, 10);
   }, []);
+
+  const reminderItems = useMemo(() => {
+    const parseDeadline = (deadline?: string | null) => {
+      if (!deadline) return null;
+      const dateOnly = deadline.includes("T") ? deadline.split("T")[0] : deadline;
+      const parsed = new Date(dateOnly);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const items = tasks
+      .filter((task) => !task.completed)
+      .map((task) => {
+        const deadline = parseDeadline(task.deadline);
+        if (!deadline) return null;
+        const diffDays = Math.ceil(
+          (deadline.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        let score = 0;
+        let reason = "Trong tuần";
+        if (diffDays < 0) {
+          score += 60;
+          reason = "Quá hạn";
+        } else if (diffDays === 0) {
+          score += 50;
+          reason = "Hôm nay";
+        } else if (diffDays <= 3) {
+          score += 35;
+          reason = "Sắp đến hạn";
+        } else if (diffDays <= 7) {
+          score += 20;
+          reason = "Trong tuần";
+        } else {
+          score += 5;
+          reason = "Theo dõi";
+        }
+
+        const amount =
+          (task.amountDisbursement ?? 0) +
+          (task.amountRecovery ?? 0) +
+          (task.amountMobilized ?? 0);
+        if (amount >= 1_000_000_000) score += 25;
+        else if (amount >= 300_000_000) score += 15;
+        else if (amount >= 100_000_000) score += 8;
+
+        return {
+          id: task.id,
+          title: task.title,
+          type: task.type,
+          deadline: deadline.toISOString(),
+          score,
+          reason,
+          amount,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6);
+
+    return items;
+  }, [tasks]);
 
   const filteredTasks = useMemo(() => {
     if (taskFilter === "all") return tasks;
@@ -806,6 +872,11 @@ export default function DashboardPage() {
               setIsTargetModalOpen(true);
             }}
           />
+
+          <section className="grid gap-6 lg:grid-cols-2">
+            <ReminderSection items={reminderItems} />
+            <LoanRateCard />
+          </section>
 
           <section
             id="overview"
