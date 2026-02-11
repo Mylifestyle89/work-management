@@ -36,6 +36,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const payload = (await request.json()) as {
     completed?: boolean;
     quadrant?: string;
+    archived?: boolean;
   };
 
   try {
@@ -44,6 +45,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       completedAt?: Date | null;
       quadrant?: string;
       position?: number;
+      archivedAt?: Date | null;
     } =
       {};
 
@@ -59,6 +61,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       });
       data.quadrant = payload.quadrant;
       data.position = (maxPosition._max.position ?? 0) + 1;
+    }
+
+    if (typeof payload.archived === "boolean") {
+      data.archivedAt = payload.archived ? new Date() : null;
     }
 
     const updated = await prisma.task.update({

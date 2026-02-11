@@ -41,11 +41,7 @@ export function ProgressCards({
         const startOfDay = card.outstandingStartOfDay ?? 0;
         const startOfMonth = card.outstandingStartOfMonth ?? 0;
         const startOfYear = card.outstandingStartOfYear ?? 0;
-        const monthBaseDenominator = card.monthTarget - startOfMonth;
-        const monthDenominatorOutstanding =
-          startOfDay < startOfMonth
-            ? monthBaseDenominator + Math.abs(startOfDay - startOfMonth)
-            : monthBaseDenominator;
+        const monthDenominatorOutstanding = card.monthTarget - startOfMonth;
         const monthNumeratorOutstanding = card.monthActual;
         const yearNumeratorOutstanding = startOfDay - startOfYear;
         const yearDenominatorOutstanding = card.target - startOfYear;

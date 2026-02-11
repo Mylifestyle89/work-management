@@ -53,22 +53,23 @@ export const quadrants: QuadrantConfig[] = [
     id: "Q1",
     title: "Quan trọng & Khẩn cấp",
     subtitle: "Ưu tiên xử lý ngay",
-    className: "border-rose-200/70 bg-gradient-to-br from-rose-50 to-fuchsia-50",
+    className:
+      "border-pink-200/70 bg-gradient-to-br from-pink-50 to-violet-50",
     darkClassName:
-      "dark:border-rose-900/50 dark:from-slate-800 dark:to-rose-950/80",
-    accent: "bg-gradient-to-b from-fuchsia-500 to-rose-500",
-    badge: "bg-fuchsia-100 text-fuchsia-700",
-    darkBadge: "dark:bg-fuchsia-900/50 dark:text-fuchsia-300",
+      "dark:border-pink-900/50 dark:from-slate-800 dark:to-violet-950/80",
+    accent: "bg-gradient-to-b from-pink-500 to-violet-500",
+    badge: "bg-pink-100 text-pink-700",
+    darkBadge: "dark:bg-pink-900/50 dark:text-pink-300",
   },
   {
     id: "Q2",
     title: "Quan trọng nhưng không khẩn cấp",
     subtitle: "Lập kế hoạch tối ưu",
     className:
-      "border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-teal-50",
+      "border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-cyan-50",
     darkClassName:
-      "dark:border-emerald-900/50 dark:from-slate-800 dark:to-emerald-950/80",
-    accent: "bg-gradient-to-b from-emerald-500 to-teal-500",
+      "dark:border-emerald-900/50 dark:from-slate-800 dark:to-cyan-950/80",
+    accent: "bg-gradient-to-b from-emerald-500 to-cyan-500",
     badge: "bg-emerald-100 text-emerald-700",
     darkBadge: "dark:bg-emerald-900/50 dark:text-emerald-300",
   },
@@ -77,23 +78,24 @@ export const quadrants: QuadrantConfig[] = [
     title: "Khẩn cấp nhưng không quan trọng",
     subtitle: "Xử lý nhanh, kiểm soát rủi ro",
     className:
-      "border-amber-200/70 bg-gradient-to-br from-amber-50 to-orange-50",
+      "border-orange-200/70 bg-gradient-to-br from-amber-50 to-orange-50",
     darkClassName:
-      "dark:border-amber-900/50 dark:from-slate-800 dark:to-amber-950/80",
+      "dark:border-orange-900/50 dark:from-slate-800 dark:to-orange-950/80",
     accent: "bg-gradient-to-b from-amber-500 to-orange-500",
     badge: "bg-orange-100 text-orange-700",
-    darkBadge: "dark:bg-amber-900/50 dark:text-amber-300",
+    darkBadge: "dark:bg-orange-900/50 dark:text-orange-300",
   },
   {
     id: "Q4",
     title: "Không quan trọng & Không khẩn cấp",
     subtitle: "Giảm thiểu hoặc ủy thác",
-    className: "border-sky-200/70 bg-gradient-to-br from-sky-50 to-indigo-50",
+    className:
+      "border-slate-200/70 bg-gradient-to-br from-slate-50 to-sky-50",
     darkClassName:
-      "dark:border-sky-900/50 dark:from-slate-800 dark:to-indigo-950/80",
-    accent: "bg-gradient-to-b from-sky-500 to-indigo-500",
-    badge: "bg-sky-100 text-sky-700",
-    darkBadge: "dark:bg-sky-900/50 dark:text-sky-300",
+      "dark:border-slate-700/70 dark:from-slate-800 dark:to-sky-950/70",
+    accent: "bg-gradient-to-b from-slate-500 to-sky-500",
+    badge: "bg-slate-100 text-slate-700",
+    darkBadge: "dark:bg-slate-700/70 dark:text-slate-200",
   },
 ];
 

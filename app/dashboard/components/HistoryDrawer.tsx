@@ -12,6 +12,8 @@ type HistoryDrawerProps = {
   loading?: boolean;
   onExportExcel: () => void;
   onExportPdf: () => void;
+  onUndoCompleted: (taskId: string) => void;
+  onRestoreArchived: (taskId: string) => void;
 };
 
 type ViewMode = "cards" | "table";
@@ -23,6 +25,8 @@ export function HistoryDrawer({
   loading = false,
   onExportExcel,
   onExportPdf,
+  onUndoCompleted,
+  onRestoreArchived,
 }: HistoryDrawerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
@@ -125,7 +129,7 @@ export function HistoryDrawer({
                         ) : null}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-2">
                       <span
                         className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                           task.completed
@@ -140,6 +144,26 @@ export function HistoryDrawer({
                           Đã lưu trữ
                         </span>
                       ) : null}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {task.completed ? (
+                          <button
+                            type="button"
+                            onClick={() => onUndoCompleted(task.id)}
+                            className="rounded-full border border-slate-200/70 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-all hover:shadow-md dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                          >
+                            Bỏ hoàn thành
+                          </button>
+                        ) : null}
+                        {task.archivedAt ? (
+                          <button
+                            type="button"
+                            onClick={() => onRestoreArchived(task.id)}
+                            className="rounded-full border border-slate-200/70 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-all hover:shadow-md dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                          >
+                            Khôi phục
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                   <div className="mt-3 text-xs text-slate-500 dark:text-slate-200">
@@ -198,6 +222,9 @@ export function HistoryDrawer({
                     <th className="border border-slate-200 px-3 py-2 font-semibold text-slate-700 dark:border-slate-600 dark:text-slate-200 whitespace-nowrap">
                       Tạo lúc
                     </th>
+                    <th className="border border-slate-200 px-3 py-2 font-semibold text-slate-700 dark:border-slate-600 dark:text-slate-200 whitespace-nowrap">
+                      Thao tác
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -244,6 +271,28 @@ export function HistoryDrawer({
                       </td>
                       <td className="border border-slate-200 px-3 py-2 text-slate-600 dark:border-slate-600 dark:text-slate-300 whitespace-nowrap">
                         {formatDate(task.createdAt)}
+                      </td>
+                      <td className="border border-slate-200 px-3 py-2 text-slate-600 dark:border-slate-600 dark:text-slate-300 whitespace-nowrap">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {task.completed ? (
+                            <button
+                              type="button"
+                              onClick={() => onUndoCompleted(task.id)}
+                              className="rounded-full border border-slate-200/70 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-all hover:shadow-md dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                            >
+                              Bỏ hoàn thành
+                            </button>
+                          ) : null}
+                          {task.archivedAt ? (
+                            <button
+                              type="button"
+                              onClick={() => onRestoreArchived(task.id)}
+                              className="rounded-full border border-slate-200/70 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-all hover:shadow-md dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                            >
+                              Khôi phục
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
