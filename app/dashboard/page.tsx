@@ -123,6 +123,8 @@ export default function DashboardPage() {
   const [draggingFromQuadrant, setDraggingFromQuadrant] =
     useState<Quadrant | null>(null);
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
+  const [outstandingDisplayAdjustment, setOutstandingDisplayAdjustment] =
+    useState(0);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -373,17 +375,26 @@ export default function DashboardPage() {
       }
     });
 
+    const monthOutstandingNet = monthTasks.reduce(
+      (sum, task) =>
+        sum + (task.amountDisbursement ?? 0) - (task.amountRecovery ?? 0),
+      0
+    );
+
     return {
       monthLabel: `Tháng ${currentMonth + 1}`,
       dayTotals: summarizeTotals(dayTasks),
       yearTotals: summarizeTotals(yearTasks),
       monthTotals: summarizeTotals(monthTasks),
+      monthOutstandingNet,
     };
   }, [allTasksForProgress, tasks, todayKey]);
 
   const progressCards = useMemo(() => {
     const outstandingToday =
-      outstandingExtras.startOfDay + progressSnapshot.dayTotals.netOutstanding;
+      outstandingExtras.startOfDay +
+      progressSnapshot.dayTotals.netOutstanding +
+      outstandingDisplayAdjustment;
 
     return [
       {
@@ -392,7 +403,7 @@ export default function DashboardPage() {
         icon: Banknote,
         value: outstandingToday,
         target: targetValues.outstanding,
-        monthActual: progressSnapshot.monthTotals.netOutstanding,
+        monthActual: progressSnapshot.monthOutstandingNet,
         monthTarget: monthlyTargets.outstanding,
         yearActual: progressSnapshot.yearTotals.netOutstanding,
         outstandingStartOfDay: outstandingExtras.startOfDay,
@@ -420,7 +431,20 @@ export default function DashboardPage() {
         yearActual: progressSnapshot.yearTotals.totalServiceFee,
       },
     ];
-  }, [monthlyTargets, outstandingExtras, progressSnapshot, targetValues]);
+  }, [
+    monthlyTargets,
+    outstandingDisplayAdjustment,
+    outstandingExtras,
+    progressSnapshot,
+    targetValues,
+  ]);
+
+  const resetOutstandingToStartOfDay = () => {
+    const deltaToday = progressSnapshot.dayTotals.netOutstanding;
+    if (!Number.isFinite(deltaToday) || deltaToday === 0) return;
+    // Chỉ điều chỉnh số Dư nợ thuần hiển thị, không thay đổi Dư nợ đầu ngày.
+    setOutstandingDisplayAdjustment(-deltaToday);
+  };
 
   // Nếu user chưa nhập Dư nợ đầu ngày, tự động dùng Dư nợ thuần của ngày trước (nếu có lưu)
   useEffect(() => {
@@ -531,23 +555,6 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error("Không thể hoàn tác hoàn thành", error);
-    }
-  };
-
-  const restoreArchivedTask = async (taskId: string) => {
-    try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: false }),
-      });
-      if (!response.ok) return;
-      await loadTasks();
-      if (isHistoryOpen) {
-        await loadHistoryTasks();
-      }
-    } catch (error) {
-      console.error("Không thể khôi phục công việc", error);
     }
   };
 
@@ -910,7 +917,6 @@ export default function DashboardPage() {
         onExportExcel={() => exportExcel(historyTasks)}
         onExportPdf={() => exportPdf(historyTasks)}
         onUndoCompleted={undoCompletedTask}
-        onRestoreArchived={restoreArchivedTask}
       />
 
       <TaskModal
@@ -947,6 +953,7 @@ export default function DashboardPage() {
         outstandingStartOfDay={outstandingExtras.startOfDay}
         outstandingStartOfMonth={outstandingExtras.startOfMonth}
         outstandingStartOfYear={outstandingExtras.startOfYear}
+        onResetOutstandingToStartOfDay={resetOutstandingToStartOfDay}
       />
     </div>
   );

@@ -13,7 +13,6 @@ type HistoryDrawerProps = {
   onExportExcel: () => void;
   onExportPdf: () => void;
   onUndoCompleted: (taskId: string) => void;
-  onRestoreArchived: (taskId: string) => void;
 };
 
 type ViewMode = "cards" | "table";
@@ -26,7 +25,6 @@ export function HistoryDrawer({
   onExportExcel,
   onExportPdf,
   onUndoCompleted,
-  onRestoreArchived,
 }: HistoryDrawerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
@@ -154,15 +152,6 @@ export function HistoryDrawer({
                             Bỏ hoàn thành
                           </button>
                         ) : null}
-                        {task.archivedAt ? (
-                          <button
-                            type="button"
-                            onClick={() => onRestoreArchived(task.id)}
-                            className="rounded-full border border-slate-200/70 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-all hover:shadow-md dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
-                          >
-                            Khôi phục
-                          </button>
-                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -281,15 +270,6 @@ export function HistoryDrawer({
                               className="rounded-full border border-slate-200/70 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-all hover:shadow-md dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
                             >
                               Bỏ hoàn thành
-                            </button>
-                          ) : null}
-                          {task.archivedAt ? (
-                            <button
-                              type="button"
-                              onClick={() => onRestoreArchived(task.id)}
-                              className="rounded-full border border-slate-200/70 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-all hover:shadow-md dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
-                            >
-                              Khôi phục
                             </button>
                           ) : null}
                         </div>

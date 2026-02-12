@@ -24,6 +24,7 @@ type TargetEditModalProps = {
   outstandingStartOfDay?: number;
   outstandingStartOfMonth?: number;
   outstandingStartOfYear?: number;
+  onResetOutstandingToStartOfDay?: () => void;
 };
 
 export function TargetEditModal({
@@ -39,6 +40,7 @@ export function TargetEditModal({
   outstandingStartOfDay = 0,
   outstandingStartOfMonth = 0,
   outstandingStartOfYear = 0,
+  onResetOutstandingToStartOfDay,
 }: TargetEditModalProps) {
   if (!isOpen || !targetKey) return null;
 
@@ -183,6 +185,15 @@ export function TargetEditModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {targetKey === "outstanding" && onResetOutstandingToStartOfDay ? (
+              <button
+                type="button"
+                onClick={onResetOutstandingToStartOfDay}
+                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 transition-all hover:shadow-md dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-300"
+              >
+                Đặt lại dư nợ thuần
+              </button>
+            ) : null}
             <button
               type="submit"
               className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:shadow-md dark:from-blue-600 dark:to-indigo-700"
