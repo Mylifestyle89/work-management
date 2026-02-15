@@ -88,14 +88,6 @@ const summarizeTotals = (items: Task[]) => {
 };
 
 export default function DashboardPage() {
-  type TaskFilter =
-    | "all"
-    | "today"
-    | "thisWeek"
-    | "overdue"
-    | "completed"
-    | "pending";
-
   const [tasks, setTasks] = useState<Task[]>([]);
   const [totalsFromApi, setTotalsFromApi] = useState<TasksResponse["totals"] | null>(null);
   const [historyTasks, setHistoryTasks] = useState<Task[]>([]);
@@ -122,7 +114,6 @@ export default function DashboardPage() {
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [draggingFromQuadrant, setDraggingFromQuadrant] =
     useState<Quadrant | null>(null);
-  const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
   const [outstandingDisplayAdjustment, setOutstandingDisplayAdjustment] =
     useState(0);
 
@@ -315,42 +306,6 @@ export default function DashboardPage() {
 
     return items;
   }, [tasks]);
-
-  const filteredTasks = useMemo(() => {
-    if (taskFilter === "all") return tasks;
-
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfWeek = new Date(startOfToday);
-    endOfWeek.setDate(endOfWeek.getDate() + 7);
-
-    const parseDeadline = (deadline?: string | null) => {
-      if (!deadline) return null;
-      const dateOnly = deadline.includes("T") ? deadline.split("T")[0] : deadline;
-      const parsed = new Date(dateOnly);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
-    };
-
-    return tasks.filter((task) => {
-      const deadline = parseDeadline(task.deadline);
-      switch (taskFilter) {
-        case "completed":
-          return Boolean(task.completed);
-        case "pending":
-          return !task.completed;
-        case "today":
-          return deadline
-            ? deadline.toISOString().slice(0, 10) === todayKey
-            : false;
-        case "thisWeek":
-          return deadline ? deadline >= startOfToday && deadline <= endOfWeek : false;
-        case "overdue":
-          return deadline ? deadline < startOfToday && !task.completed : false;
-        default:
-          return true;
-      }
-    });
-  }, [taskFilter, tasks, todayKey]);
 
   const progressSnapshot = useMemo(() => {
     const source = allTasksForProgress.length ? allTasksForProgress : tasks;
@@ -857,12 +812,12 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       <div className="flex min-h-screen">
-        <Sidebar activeFilter={taskFilter} onFilterChange={setTaskFilter} />
+        <Sidebar
+          onOpenTaskModal={() => setIsTaskModalOpen(true)}
+          onOpenHistory={() => setIsHistoryOpen(true)}
+        />
         <main className="flex-1 space-y-8 px-6 py-8 lg:px-10">
-          <Header
-            onOpenHistory={() => setIsHistoryOpen(true)}
-            onOpenTaskModal={() => setIsTaskModalOpen(true)}
-          />
+          <Header onOpenTaskModal={() => setIsTaskModalOpen(true)} />
 
           <ProgressCards
             cards={progressCards}
@@ -889,12 +844,12 @@ export default function DashboardPage() {
             id="overview"
             className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]"
           >
-            <OverviewSection tasks={filteredTasks} />
-            <TaskChart tasks={filteredTasks} />
+            <OverviewSection tasks={tasks} />
+            <TaskChart tasks={tasks} />
           </section>
 
           <EisenhowerSection
-            tasks={filteredTasks}
+            tasks={tasks}
             getOrderedQuadrantTasks={getOrderedQuadrantTasks}
             draggingTaskId={draggingTaskId}
             draggingFromQuadrant={draggingFromQuadrant}
