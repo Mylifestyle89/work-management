@@ -1,16 +1,6 @@
 import { BellRing, AlertTriangle, CalendarClock } from "lucide-react";
-import type { Task } from "@/lib/dashboard/types";
+import type { ReminderItem } from "../lib/dashboard-page-helpers";
 import { formatCurrency, formatDate } from "@/lib/dashboard/utils";
-
-type ReminderItem = {
-  id: string;
-  title: string;
-  type: Task["type"];
-  deadline: string;
-  score: number;
-  reason: string;
-  amount: number;
-};
 
 type ReminderSectionProps = {
   items: ReminderItem[];

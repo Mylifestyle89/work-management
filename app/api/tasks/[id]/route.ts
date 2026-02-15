@@ -1,11 +1,26 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { Task } from "@prisma/client";
 
 type RouteParams = {
   params: Promise<{
     id: string;
   }>;
 };
+
+const notFoundResponse = () =>
+  NextResponse.json(
+    { message: "Không tìm thấy công việc." },
+    { status: 404 }
+  );
+
+const serializeTask = (task: Task) => ({
+  ...task,
+  archivedAt: task.archivedAt?.toISOString() ?? null,
+  completedAt: task.completedAt?.toISOString() ?? null,
+  createdAt: task.createdAt.toISOString(),
+  deadline: task.deadline?.toISOString() ?? null,
+});
 
 export async function DELETE(_: Request, { params }: RouteParams) {
   const { id } = await params;
@@ -15,10 +30,7 @@ export async function DELETE(_: Request, { params }: RouteParams) {
       where: { id },
     });
     if (!existing) {
-      return NextResponse.json(
-        { message: "Không tìm thấy công việc." },
-        { status: 404 }
-      );
+      return notFoundResponse();
     }
 
     // Task chưa hoàn thành: xóa hẳn khỏi DB.
@@ -26,13 +38,7 @@ export async function DELETE(_: Request, { params }: RouteParams) {
       const deleted = await prisma.task.delete({
         where: { id },
       });
-      return NextResponse.json({
-        ...deleted,
-        archivedAt: deleted.archivedAt?.toISOString() ?? null,
-        completedAt: deleted.completedAt?.toISOString() ?? null,
-        createdAt: deleted.createdAt.toISOString(),
-        deadline: deleted.deadline?.toISOString() ?? null,
-      });
+      return NextResponse.json(serializeTask(deleted));
     }
 
     // Task đã hoàn thành: lưu trữ để còn lịch sử/báo cáo.
@@ -40,18 +46,9 @@ export async function DELETE(_: Request, { params }: RouteParams) {
       where: { id },
       data: { archivedAt: new Date() },
     });
-    return NextResponse.json({
-      ...updated,
-      archivedAt: updated.archivedAt?.toISOString() ?? null,
-      completedAt: updated.completedAt?.toISOString() ?? null,
-      createdAt: updated.createdAt.toISOString(),
-      deadline: updated.deadline?.toISOString() ?? null,
-    });
+    return NextResponse.json(serializeTask(updated));
   } catch {
-    return NextResponse.json(
-      { message: "Không tìm thấy công việc." },
-      { status: 404 }
-    );
+    return notFoundResponse();
   }
 }
 
@@ -97,18 +94,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         ...data,
       },
     });
-    return NextResponse.json({
-      ...updated,
-      archivedAt: updated.archivedAt?.toISOString() ?? null,
-      completedAt: updated.completedAt?.toISOString() ?? null,
-      createdAt: updated.createdAt.toISOString(),
-      deadline: updated.deadline?.toISOString() ?? null,
-    });
+    return NextResponse.json(serializeTask(updated));
   } catch {
-    return NextResponse.json(
-      { message: "Không tìm thấy công việc." },
-      { status: 404 }
-    );
+    return notFoundResponse();
   }
 }
 
@@ -150,17 +138,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
         amountMobilized: payload.amountMobilized ?? null,
       },
     });
-    return NextResponse.json({
-      ...updated,
-      archivedAt: updated.archivedAt?.toISOString() ?? null,
-      completedAt: updated.completedAt?.toISOString() ?? null,
-      createdAt: updated.createdAt.toISOString(),
-      deadline: updated.deadline?.toISOString() ?? null,
-    });
+    return NextResponse.json(serializeTask(updated));
   } catch {
-    return NextResponse.json(
-      { message: "Không tìm thấy công việc." },
-      { status: 404 }
-    );
+    return notFoundResponse();
   }
 }

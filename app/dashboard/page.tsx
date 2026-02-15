@@ -6,23 +6,28 @@ import {
   type Task,
   type Quadrant,
   type TargetKey,
-  type TargetValues,
-  type MonthlyTargetValues,
-  type OutstandingExtras,
-  defaultTargets,
-  defaultMonthlyTargets,
-  defaultOutstandingExtras,
-  TARGETS_STORAGE_KEY,
-  MONTHLY_TARGETS_STORAGE_KEY,
-  OUTSTANDING_EXTRAS_STORAGE_KEY,
-  OUTSTANDING_PREVIOUS_DAY_KEY,
 } from "@/lib/dashboard/types";
 import {
-  formatCurrency,
-  formatDate,
   createId,
 } from "@/lib/dashboard/utils";
-import * as XLSX from "xlsx";
+import {
+  saveTaskApi,
+  deleteTaskApi,
+  toggleTaskCompletedApi,
+  undoTaskCompletedApi,
+  moveTaskToQuadrantApi,
+  reorderWithinQuadrantApi,
+} from "./lib/task-api";
+import { exportTasksToExcel, exportTasksToPdf } from "./lib/task-exports";
+import {
+  type TasksResponse,
+  buildReminderItems,
+  initialTargetFormState,
+  summarizeTotals,
+} from "./lib/dashboard-page-helpers";
+import { useDayKey } from "./lib/use-day-key";
+import { useDashboardTargetSettings } from "./lib/use-dashboard-target-settings";
+import { useOutstandingRollover } from "./lib/use-outstanding-rollover";
 import {
   Sidebar,
   Header,
@@ -50,45 +55,6 @@ const initialFormState: TaskFormState = {
   amountMobilized: "",
 };
 
-type TasksResponse = {
-  tasks: Task[];
-  totals: {
-    totalDisbursement: number;
-    totalRecovery: number;
-    totalMobilized: number;
-    totalServiceFee: number;
-    netOutstanding: number;
-  };
-};
-
-const summarizeTotals = (items: Task[]) => {
-  const totalDisbursement = items.reduce(
-    (sum, task) => sum + (task.amountDisbursement ?? 0),
-    0
-  );
-  const totalRecovery = items.reduce(
-    (sum, task) => sum + (task.amountRecovery ?? 0),
-    0
-  );
-  const totalMobilized = items.reduce(
-    (sum, task) => sum + (task.amountMobilized ?? 0),
-    0
-  );
-  const totalServiceFee = items.reduce(
-    (sum, task) => sum + (task.serviceFee ?? 0),
-    0
-  );
-  return {
-    totalDisbursement,
-    totalRecovery,
-    totalMobilized,
-    totalServiceFee,
-    netOutstanding: totalDisbursement - totalRecovery,
-  };
-};
-
-const getTodayKey = () => new Date().toISOString().slice(0, 10);
-
 export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [totalsFromApi, setTotalsFromApi] = useState<TasksResponse["totals"] | null>(null);
@@ -96,18 +62,15 @@ export default function DashboardPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [allTasksForProgress, setAllTasksForProgress] = useState<Task[]>([]);
   const [form, setForm] = useState<TaskFormState>(initialFormState);
-  const [targetValues, setTargetValues] = useState<TargetValues>(defaultTargets);
-  const [monthlyTargets, setMonthlyTargets] =
-    useState<MonthlyTargetValues>(defaultMonthlyTargets);
-  const [targetForm, setTargetForm] = useState({
-    monthlyTarget: "",
-    annualTarget: "",
-    startOfDay: "",
-    startOfMonth: "",
-    startOfYear: "",
-  });
-  const [outstandingExtras, setOutstandingExtras] =
-    useState<OutstandingExtras>(defaultOutstandingExtras);
+  const {
+    targetValues,
+    setTargetValues,
+    monthlyTargets,
+    setMonthlyTargets,
+    outstandingExtras,
+    setOutstandingExtras,
+  } = useDashboardTargetSettings();
+  const [targetForm, setTargetForm] = useState(initialTargetFormState);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<TargetKey | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -118,7 +81,7 @@ export default function DashboardPage() {
     useState<Quadrant | null>(null);
   const [outstandingDisplayAdjustment, setOutstandingDisplayAdjustment] =
     useState(0);
-  const [todayKey, setTodayKey] = useState(getTodayKey);
+  const todayKey = useDayKey();
 
   const loadTasks = useCallback(async () => {
     try {
@@ -162,79 +125,6 @@ export default function DashboardPage() {
       .finally(() => setHistoryLoading(false));
   }, [isHistoryOpen, loadHistoryTasks]);
 
-  useEffect(() => {
-    const savedTargets = localStorage.getItem(TARGETS_STORAGE_KEY);
-    if (!savedTargets) return;
-    try {
-      const parsed = JSON.parse(savedTargets) as TargetValues;
-      if (
-        typeof parsed?.outstanding === "number" &&
-        typeof parsed?.mobilized === "number" &&
-        typeof parsed?.serviceFee === "number"
-      ) {
-        setTargetValues(parsed);
-      }
-    } catch (error) {
-      console.error("Không thể tải chỉ tiêu", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(TARGETS_STORAGE_KEY, JSON.stringify(targetValues));
-  }, [targetValues]);
-
-  useEffect(() => {
-    const savedMonthlyTargets = localStorage.getItem(MONTHLY_TARGETS_STORAGE_KEY);
-    if (!savedMonthlyTargets) return;
-    try {
-      const parsed = JSON.parse(savedMonthlyTargets) as MonthlyTargetValues;
-      if (
-        typeof parsed?.outstanding === "number" &&
-        typeof parsed?.mobilized === "number" &&
-        typeof parsed?.serviceFee === "number"
-      ) {
-        setMonthlyTargets(parsed);
-      }
-    } catch (error) {
-      console.error("Không thể tải chỉ tiêu tháng", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(
-      MONTHLY_TARGETS_STORAGE_KEY,
-      JSON.stringify(monthlyTargets)
-    );
-  }, [monthlyTargets]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(OUTSTANDING_EXTRAS_STORAGE_KEY);
-    if (!saved) return;
-    try {
-      const parsed = JSON.parse(saved) as OutstandingExtras;
-      if (
-        typeof parsed?.startOfDay === "number" &&
-        typeof parsed?.startOfMonth === "number"
-      ) {
-        setOutstandingExtras({
-          ...defaultOutstandingExtras,
-          ...parsed,
-          startOfYear:
-            typeof parsed.startOfYear === "number" ? parsed.startOfYear : 0,
-        });
-      }
-    } catch (error) {
-      console.error("Không thể tải chỉ tiêu dư nợ", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(
-      OUTSTANDING_EXTRAS_STORAGE_KEY,
-      JSON.stringify(outstandingExtras)
-    );
-  }, [outstandingExtras]);
-
   const totals = useMemo(() => {
     if (totalsFromApi) return totalsFromApi;
     const source = allTasksForProgress.length ? allTasksForProgress : tasks;
@@ -242,79 +132,11 @@ export default function DashboardPage() {
   }, [allTasksForProgress, totalsFromApi, tasks]);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      const nextDayKey = getTodayKey();
-      setTodayKey((prev) => (prev === nextDayKey ? prev : nextDayKey));
-    }, 60_000);
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
     setOutstandingDisplayAdjustment(0);
   }, [todayKey]);
 
   const reminderItems = useMemo(() => {
-    const parseDeadline = (deadline?: string | null) => {
-      if (!deadline) return null;
-      const dateOnly = deadline.includes("T") ? deadline.split("T")[0] : deadline;
-      const parsed = new Date(dateOnly);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
-    };
-
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const items = tasks
-      .filter((task) => !task.completed)
-      .map((task) => {
-        const deadline = parseDeadline(task.deadline);
-        if (!deadline) return null;
-        const diffDays = Math.ceil(
-          (deadline.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        let score = 0;
-        let reason = "Trong tuần";
-        if (diffDays < 0) {
-          score += 60;
-          reason = "Quá hạn";
-        } else if (diffDays === 0) {
-          score += 50;
-          reason = "Hôm nay";
-        } else if (diffDays <= 3) {
-          score += 35;
-          reason = "Sắp đến hạn";
-        } else if (diffDays <= 7) {
-          score += 20;
-          reason = "Trong tuần";
-        } else {
-          score += 5;
-          reason = "Theo dõi";
-        }
-
-        const amount =
-          (task.amountDisbursement ?? 0) +
-          (task.amountRecovery ?? 0) +
-          (task.amountMobilized ?? 0);
-        if (amount >= 1_000_000_000) score += 25;
-        else if (amount >= 300_000_000) score += 15;
-        else if (amount >= 100_000_000) score += 8;
-
-        return {
-          id: task.id,
-          title: task.title,
-          type: task.type,
-          deadline: deadline.toISOString(),
-          score,
-          reason,
-          amount,
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 6);
-
-    return items;
+    return buildReminderItems(tasks);
   }, [tasks]);
 
   const progressSnapshot = useMemo(() => {
@@ -411,49 +233,12 @@ export default function DashboardPage() {
     setOutstandingDisplayAdjustment(-deltaToday);
   };
 
-  // Nếu user chưa nhập Dư nợ đầu ngày, tự động dùng Dư nợ thuần của ngày trước (nếu có lưu)
-  useEffect(() => {
-    if (outstandingExtras.startOfDay !== 0) return;
-    try {
-      const saved = localStorage.getItem(OUTSTANDING_PREVIOUS_DAY_KEY);
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as {
-        date?: string;
-        outstanding?: number;
-      };
-      if (
-        parsed &&
-        typeof parsed.outstanding === "number" &&
-        parsed.date &&
-        parsed.date !== todayKey
-      ) {
-        setOutstandingExtras((prev) => ({
-          ...prev,
-          startOfDay: parsed.outstanding ?? prev.startOfDay,
-        }));
-      }
-    } catch {
-      // ignore
-    }
-  }, [outstandingExtras.startOfDay, todayKey]);
-
-  // Luôn lưu lại Dư nợ thuần hiện tại để dùng làm Dư nợ đầu ngày cho ngày tiếp theo
-  useEffect(() => {
-    const outstandingToday =
-      outstandingExtras.startOfDay + progressSnapshot.monthTotals.netOutstanding;
-    if (!Number.isFinite(outstandingToday)) return;
-    try {
-      localStorage.setItem(
-        OUTSTANDING_PREVIOUS_DAY_KEY,
-        JSON.stringify({
-          date: todayKey,
-          outstanding: outstandingToday,
-        })
-      );
-    } catch {
-      // ignore
-    }
-  }, [outstandingExtras.startOfDay, progressSnapshot.monthTotals.netOutstanding, todayKey]);
+  useOutstandingRollover({
+    startOfDay: outstandingExtras.startOfDay,
+    todayKey,
+    monthNetOutstanding: progressSnapshot.monthTotals.netOutstanding,
+    setOutstandingExtras,
+  });
 
   const currentTargetTitle = useMemo(() => {
     if (!editingTarget) return "";
@@ -501,23 +286,38 @@ export default function DashboardPage() {
       }
     }
 
-    setTargetForm({ monthlyTarget: "", annualTarget: "", startOfDay: "", startOfMonth: "", startOfYear: "" });
+    setTargetForm(initialTargetFormState);
     setEditingTarget(null);
     setIsTargetModalOpen(false);
   };
 
+  const openTargetModal = (key: TargetKey) => {
+    setEditingTarget(key);
+    setTargetForm(initialTargetFormState);
+    setIsTargetModalOpen(true);
+  };
+
+  const closeTargetModal = () => {
+    setIsTargetModalOpen(false);
+    setTargetForm(initialTargetFormState);
+    setEditingTarget(null);
+  };
+
+  const openTaskModal = () => setIsTaskModalOpen(true);
+  const openHistory = () => setIsHistoryOpen(true);
+  const closeHistory = () => setIsHistoryOpen(false);
+
+  const refreshTaskViews = async (includeHistory = false) => {
+    await loadTasks();
+    if (includeHistory && isHistoryOpen) {
+      await loadHistoryTasks();
+    }
+  };
+
   const undoCompletedTask = async (taskId: string) => {
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed: false }),
-      });
-      if (!response.ok) return;
-      await loadTasks();
-      if (isHistoryOpen) {
-        await loadHistoryTasks();
-      }
+      await undoTaskCompletedApi(taskId);
+      await refreshTaskViews(true);
     } catch (error) {
       console.error("Không thể hoàn tác hoàn thành", error);
     }
@@ -550,30 +350,21 @@ export default function DashboardPage() {
     }
 
     try {
-      const isEditing = Boolean(editingTaskId);
-      const response = await fetch(
-        isEditing ? `/api/tasks/${editingTaskId}` : "/api/tasks",
-        {
-          method: isEditing ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: newTask.title,
-            quadrant: newTask.quadrant,
-            type: newTask.type,
-            note: newTask.note,
-            deadline: newTask.deadline,
-            amountDisbursement: newTask.amountDisbursement,
-            serviceFee: newTask.serviceFee,
-            amountRecovery: newTask.amountRecovery,
-            amountMobilized: newTask.amountMobilized,
-            completed: newTask.completed ?? false,
-          }),
-        }
-      );
-      if (!response.ok) return;
+      await saveTaskApi(editingTaskId, {
+        title: newTask.title,
+        quadrant: newTask.quadrant,
+        type: newTask.type,
+        note: newTask.note,
+        deadline: newTask.deadline,
+        amountDisbursement: newTask.amountDisbursement,
+        serviceFee: newTask.serviceFee,
+        amountRecovery: newTask.amountRecovery,
+        amountMobilized: newTask.amountMobilized,
+        completed: newTask.completed ?? false,
+      });
       setForm(initialFormState);
       setEditingTaskId(null);
-      await loadTasks();
+      await refreshTaskViews();
     } catch (error) {
       console.error("Không thể tạo công việc", error);
     }
@@ -581,11 +372,8 @@ export default function DashboardPage() {
 
   const removeTask = async (taskId: string) => {
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) return;
-      await loadTasks();
+      await deleteTaskApi(taskId);
+      await refreshTaskViews();
     } catch (error) {
       console.error("Không thể xóa công việc", error);
     }
@@ -593,13 +381,8 @@ export default function DashboardPage() {
 
   const toggleCompleted = async (task: Task) => {
     try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed: !task.completed }),
-      });
-      if (!response.ok) return;
-      await loadTasks();
+      await toggleTaskCompletedApi(task.id, !task.completed);
+      await refreshTaskViews();
     } catch (error) {
       console.error("Không thể cập nhật trạng thái", error);
     }
@@ -632,13 +415,8 @@ export default function DashboardPage() {
     );
 
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quadrant: quadrantId }),
-      });
-      if (!response.ok) throw new Error("Không thể cập nhật ma trận");
-      await loadTasks();
+      await moveTaskToQuadrantApi(taskId, quadrantId);
+      await refreshTaskViews();
     } catch (error) {
       console.error("Không thể cập nhật ma trận", error);
       setTasks((prev) =>
@@ -669,13 +447,8 @@ export default function DashboardPage() {
     );
 
     try {
-      const response = await fetch("/api/tasks/reorder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quadrant: quadrantId, orderedIds }),
-      });
-      if (!response.ok) throw new Error("Không thể sắp xếp lại");
-      await loadTasks();
+      await reorderWithinQuadrantApi(quadrantId, orderedIds);
+      await refreshTaskViews();
     } catch (error) {
       console.error("Không thể sắp xếp lại", error);
       setTasks((prev) =>
@@ -704,7 +477,7 @@ export default function DashboardPage() {
         ? String(task.amountMobilized)
         : "",
     });
-    setIsTaskModalOpen(true);
+    openTaskModal();
   };
 
   const resetTaskForm = () => {
@@ -712,109 +485,15 @@ export default function DashboardPage() {
     setForm(initialFormState);
   };
 
-  const exportExcel = (tasksToExport: Task[] = tasks) => {
-    const headers = [
-      "Tiêu đề",
-      "Ô",
-      "Loại",
-      "Ghi chú",
-      "Hạn",
-      "Giải ngân",
-      "Phí DV",
-      "Thu nợ",
-      "Huy động",
-      "Trạng thái",
-      "Hoàn thành",
-      "Lưu trữ",
-      "Tạo lúc",
-    ];
-    const rows = tasksToExport.map((task) => [
-      task.title,
-      task.quadrant,
-      task.type,
-      task.note ?? "",
-      task.deadline ? formatDate(task.deadline) : "",
-      task.amountDisbursement != null ? formatCurrency(task.amountDisbursement) : "",
-      task.serviceFee != null ? formatCurrency(task.serviceFee) : "",
-      task.amountRecovery != null ? formatCurrency(task.amountRecovery) : "",
-      task.amountMobilized != null ? formatCurrency(task.amountMobilized) : "",
-      task.completed ? "Hoàn thành" : "Đang xử lý",
-      task.completedAt ? formatDate(task.completedAt) : "",
-      task.archivedAt ? formatDate(task.archivedAt) : "",
-      formatDate(task.createdAt),
-    ]);
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Công việc");
-    const fileName = `cong-viec-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-  };
-
-  const exportPdf = (tasksToExport: Task[] = tasks) => {
-    const printableRows = tasksToExport
-      .map(
-        (task) => `
-          <tr>
-            <td>${task.title}</td>
-            <td>${task.type}</td>
-            <td>${task.quadrant}</td>
-            <td>${task.note ?? "-"}</td>
-            <td>${task.deadline ? formatDate(task.deadline) : "-"}</td>
-            <td>${formatDate(task.createdAt)}</td>
-            <td>${task.amountDisbursement ? formatCurrency(task.amountDisbursement) : "-"}</td>
-            <td>${task.serviceFee ? formatCurrency(task.serviceFee) : "-"}</td>
-            <td>${task.amountRecovery ? formatCurrency(task.amountRecovery) : "-"}</td>
-            <td>${task.amountMobilized ? formatCurrency(task.amountMobilized) : "-"}</td>
-          </tr>
-        `
-      )
-      .join("");
-    const html = `
-      <html>
-        <head>
-          <title>Danh sách công việc</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 24px; }
-            h1 { font-size: 18px; margin-bottom: 12px; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
-            th { background: #f8fafc; }
-          </style>
-        </head>
-        <body>
-          <h1>Danh sách công việc (${formatDate(new Date())})</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Tên công việc</th>
-                <th>Loại nghiệp vụ</th>
-                <th>Ma trận</th>
-                <th>Ghi chú</th>
-                <th>Deadline</th>
-                <th>Ngày tạo</th>
-                <th>Giải ngân</th>
-                <th>Phí dịch vụ</th>
-                <th>Thu nợ</th>
-                <th>Huy động vốn</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${printableRows || "<tr><td colspan='10'>Chưa có dữ liệu.</td></tr>"}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
-    const printWindow = window.open("", "_blank", "width=1024,height=768");
-    if (!printWindow) return;
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  };
+  const exportExcel = (tasksToExport: Task[] = tasks) => exportTasksToExcel(tasksToExport);
+  const exportPdf = (tasksToExport: Task[] = tasks) => exportTasksToPdf(tasksToExport);
 
   const handleTaskModalSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     handleSubmit(e);
+    closeTaskModal();
+  };
+
+  const closeTaskModal = () => {
     setIsTaskModalOpen(false);
     resetTaskForm();
   };
@@ -823,42 +502,22 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       <div className="flex min-h-screen">
         <Sidebar
-          onOpenTaskModal={() => setIsTaskModalOpen(true)}
-          onOpenHistory={() => setIsHistoryOpen(true)}
+          onOpenTaskModal={openTaskModal}
+          onOpenHistory={openHistory}
         />
         <main className="flex-1 space-y-8 px-6 py-8 lg:px-10">
           <Header
-            onOpenHistory={() => setIsHistoryOpen(true)}
-            onOpenTaskModal={() => setIsTaskModalOpen(true)}
+            onOpenHistory={openHistory}
+            onOpenTaskModal={openTaskModal}
           />
 
-          <ProgressCards
-            cards={progressCards}
-            monthLabel={progressSnapshot.monthLabel}
-            onOpenTargetModal={(key) => {
-              setEditingTarget(key);
-              setTargetForm({
-                monthlyTarget: "",
-                annualTarget: "",
-                startOfDay: "",
-                startOfMonth: "",
-                startOfYear: "",
-              });
-              setIsTargetModalOpen(true);
-            }}
-          />
-
-          <section className="grid gap-6 lg:grid-cols-2">
+          <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <ReminderSection items={reminderItems} />
-            <LoanRateCard />
-          </section>
-
-          <section
-            id="overview"
-            className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]"
-          >
-            <OverviewSection tasks={tasks} />
-            <TaskChart tasks={tasks} />
+            <ProgressCards
+              cards={progressCards}
+              monthLabel={progressSnapshot.monthLabel}
+              onOpenTargetModal={openTargetModal}
+            />
           </section>
 
           <EisenhowerSection
@@ -874,12 +533,22 @@ export default function DashboardPage() {
             setDraggingTaskId={setDraggingTaskId}
             setDraggingFromQuadrant={setDraggingFromQuadrant}
           />
+
+          <section
+            id="overview"
+            className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]"
+          >
+            <OverviewSection tasks={tasks} />
+            <TaskChart tasks={tasks} />
+          </section>
+
+          <LoanRateCard />
         </main>
       </div>
 
       <HistoryDrawer
         isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
+        onClose={closeHistory}
         tasks={historyTasks}
         loading={historyLoading}
         onExportExcel={() => exportExcel(historyTasks)}
@@ -889,10 +558,7 @@ export default function DashboardPage() {
 
       <TaskModal
         isOpen={isTaskModalOpen}
-        onClose={() => {
-          setIsTaskModalOpen(false);
-          resetTaskForm();
-        }}
+        onClose={closeTaskModal}
         form={form}
         onChange={(updates) => setForm((prev) => ({ ...prev, ...updates }))}
         onSubmit={handleTaskModalSubmit}
@@ -902,11 +568,7 @@ export default function DashboardPage() {
 
       <TargetEditModal
         isOpen={isTargetModalOpen}
-        onClose={() => {
-          setIsTargetModalOpen(false);
-          setTargetForm({ monthlyTarget: "", annualTarget: "", startOfDay: "", startOfMonth: "", startOfYear: "" });
-          setEditingTarget(null);
-        }}
+        onClose={closeTargetModal}
         onSubmit={handleTargetModalSubmit}
         title={currentTargetTitle}
         monthlyTarget={
