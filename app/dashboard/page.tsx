@@ -87,6 +87,8 @@ const summarizeTotals = (items: Task[]) => {
   };
 };
 
+const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
 export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [totalsFromApi, setTotalsFromApi] = useState<TasksResponse["totals"] | null>(null);
@@ -116,6 +118,7 @@ export default function DashboardPage() {
     useState<Quadrant | null>(null);
   const [outstandingDisplayAdjustment, setOutstandingDisplayAdjustment] =
     useState(0);
+  const [todayKey, setTodayKey] = useState(getTodayKey);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -238,10 +241,17 @@ export default function DashboardPage() {
     return summarizeTotals(source);
   }, [allTasksForProgress, totalsFromApi, tasks]);
 
-  const todayKey = useMemo(() => {
-    const now = new Date();
-    return now.toISOString().slice(0, 10);
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const nextDayKey = getTodayKey();
+      setTodayKey((prev) => (prev === nextDayKey ? prev : nextDayKey));
+    }, 60_000);
+    return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    setOutstandingDisplayAdjustment(0);
+  }, [todayKey]);
 
   const reminderItems = useMemo(() => {
     const parseDeadline = (deadline?: string | null) => {
@@ -817,7 +827,10 @@ export default function DashboardPage() {
           onOpenHistory={() => setIsHistoryOpen(true)}
         />
         <main className="flex-1 space-y-8 px-6 py-8 lg:px-10">
-          <Header onOpenTaskModal={() => setIsTaskModalOpen(true)} />
+          <Header
+            onOpenHistory={() => setIsHistoryOpen(true)}
+            onOpenTaskModal={() => setIsTaskModalOpen(true)}
+          />
 
           <ProgressCards
             cards={progressCards}

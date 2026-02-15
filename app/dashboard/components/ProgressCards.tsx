@@ -47,6 +47,12 @@ export function ProgressCards({
         const yearDenominatorOutstanding = card.target - startOfYear;
         const monthRemaining = monthDenominatorOutstanding - monthNumeratorOutstanding;
         const yearRemaining = yearDenominatorOutstanding - yearNumeratorOutstanding;
+        const monthProgressLabel = isOutstanding
+          ? `${formatCurrency(monthNumeratorOutstanding)} / ${formatCurrency(monthDenominatorOutstanding)}`
+          : `${formatCurrency(card.monthActual)} / ${formatCurrency(card.monthTarget)}`;
+        const yearProgressLabel = isOutstanding
+          ? `${formatCurrency(yearNumeratorOutstanding)} / ${formatCurrency(yearDenominatorOutstanding)}`
+          : `${formatCurrency(card.yearActual)} / ${formatCurrency(card.target)}`;
         const percentMonth =
           isOutstanding && monthDenominatorOutstanding > 0
             ? clampPercent((monthNumeratorOutstanding / monthDenominatorOutstanding) * 100)
@@ -131,12 +137,15 @@ export function ProgressCards({
               <div>
                 <div className={`flex items-center justify-between text-slate-500 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-xs"}`}>
                   <span>Tiến độ {monthLabel}</span>
-                  <span className="tabular-nums">
-                    {isOutstanding
-                      ? `${formatCurrency(monthNumeratorOutstanding)} / ${formatCurrency(monthDenominatorOutstanding)}`
-                      : `${formatCurrency(card.monthActual)} / ${formatCurrency(card.monthTarget)}`}
-                  </span>
+                  {!isCompact ? (
+                    <span className="tabular-nums">{monthProgressLabel}</span>
+                  ) : null}
                 </div>
+                {isCompact ? (
+                  <p className="mt-1 text-left text-[11px] font-semibold tabular-nums text-slate-700 dark:text-slate-100">
+                    {monthProgressLabel}
+                  </p>
+                ) : null}
                 <progress className="progress-bar" value={percentMonth} max={100} />
                 <p className={`mt-0.5 text-slate-400 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-[11px]"}`}>
                   Hoàn thành {percentMonth.toFixed(0)}%
@@ -148,12 +157,15 @@ export function ProgressCards({
               <div>
                 <div className={`flex items-center justify-between text-slate-500 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-xs"}`}>
                   <span>Tiến độ năm</span>
-                  <span className="tabular-nums">
-                    {isOutstanding
-                      ? `${formatCurrency(yearNumeratorOutstanding)} / ${formatCurrency(yearDenominatorOutstanding)}`
-                      : `${formatCurrency(card.yearActual)} / ${formatCurrency(card.target)}`}
-                  </span>
+                  {!isCompact ? (
+                    <span className="tabular-nums">{yearProgressLabel}</span>
+                  ) : null}
                 </div>
+                {isCompact ? (
+                  <p className="mt-1 text-left text-[11px] font-semibold tabular-nums text-slate-700 dark:text-slate-100">
+                    {yearProgressLabel}
+                  </p>
+                ) : null}
                 <progress
                   className="progress-bar"
                   value={percentYear}
