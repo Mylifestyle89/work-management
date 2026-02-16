@@ -1,9 +1,10 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Calendar, Pencil, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
 import type { Task } from "@/lib/dashboard/types";
 import { typeBadgeMap, typeBadgeMapDark } from "@/lib/dashboard/types";
-import { formatCurrency, formatDate, getDeadlineTone } from "@/lib/dashboard/utils";
+import { formatCurrency, getDeadlineTone, formatDate } from "@/lib/dashboard/utils";
 
 type TaskCardProps = {
   task: Task;
@@ -26,6 +27,24 @@ export function TaskCard({
   onDragEnd,
   onDrop,
 }: TaskCardProps) {
+  const [showFinance, setShowFinance] = useState(false);
+
+  const financeRows = useMemo(
+    () => [
+      { label: "Giải ngân", value: task.amountDisbursement ?? 0 },
+      { label: "Phí dịch vụ", value: task.serviceFee ?? 0 },
+      { label: "Thu nợ", value: task.amountRecovery ?? 0 },
+      { label: "Huy động", value: task.amountMobilized ?? 0 },
+    ],
+    [
+      task.amountDisbursement,
+      task.amountMobilized,
+      task.amountRecovery,
+      task.serviceFee,
+    ]
+  );
+  const hasFinanceData = financeRows.some((row) => row.value > 0);
+
   return (
     <div
       draggable
@@ -33,12 +52,12 @@ export function TaskCard({
       onDragEnd={onDragEnd}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => onDrop(e, task)}
-      className={`rounded-xl border border-slate-200/50 bg-white p-5 shadow-sm transition-all hover:border-indigo-300 hover:shadow-md dark:border-slate-600 dark:bg-slate-800 dark:shadow-slate-900/50 dark:hover:border-indigo-600 ${
+      className={`rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-slate-600 dark:bg-slate-800 dark:shadow-slate-900/50 dark:hover:border-slate-500 ${
         isDragging ? "opacity-70 ring-2 ring-blue-200 dark:ring-blue-600" : ""
       }`}
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-1 items-start gap-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-1 items-start gap-3">
           <button
             type="button"
             onClick={() => onToggleCompleted(task)}
@@ -54,16 +73,16 @@ export function TaskCard({
             }
           >
             {task.completed ? (
-              <ToggleRight className="h-8 w-8" />
+              <ToggleRight className="h-7 w-7" />
             ) : (
-              <ToggleLeft className="h-8 w-8" />
+              <ToggleLeft className="h-7 w-7" />
             )}
           </button>
 
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <p
-                className={`text-lg font-semibold ${
+                className={`text-base font-semibold ${
                   task.completed
                     ? "text-slate-400 line-through dark:text-slate-400"
                     : "text-slate-900 dark:text-slate-100"
@@ -72,7 +91,7 @@ export function TaskCard({
                 {task.title}
               </p>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-200">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-200">
               <span
                 className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${typeBadgeMap[task.type]} ${typeBadgeMapDark[task.type]}`}
               >
@@ -93,64 +112,51 @@ export function TaskCard({
                   Ghi chú: {task.note}
                 </span>
               ) : null}
+              {hasFinanceData ? (
+                <button
+                  type="button"
+                  onClick={() => setShowFinance((prev) => !prev)}
+                  className="rounded-full border border-slate-200/70 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition-all hover:shadow-sm dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  {showFinance ? "Ẩn tài chính" : "Chi tiết tài chính"}
+                </button>
+              ) : null}
             </div>
+            {showFinance ? (
+              <div className="mt-2 rounded-lg border border-slate-200/60 bg-slate-50/60 px-3 py-2 text-xs text-slate-500 dark:border-slate-600 dark:bg-slate-700/50 dark:text-slate-200">
+                {financeRows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="mt-1 flex items-center justify-between gap-6 first:mt-0"
+                  >
+                    <span>{row.label}</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                      {row.value > 0 ? formatCurrency(row.value) : "--"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-6 lg:justify-end">
-          <div className="rounded-xl border border-slate-200/60 bg-slate-50/60 px-4 py-3 text-xs text-slate-500 dark:border-slate-600 dark:bg-slate-700/50 dark:text-slate-200">
-            <div className="flex items-center justify-between gap-6">
-              <span>Giải ngân</span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {task.amountDisbursement
-                  ? formatCurrency(task.amountDisbursement)
-                  : "--"}
-              </span>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-6">
-              <span>Phí dịch vụ</span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {task.serviceFee
-                  ? formatCurrency(task.serviceFee)
-                  : "--"}
-              </span>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-6">
-              <span>Thu nợ</span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {task.amountRecovery
-                  ? formatCurrency(task.amountRecovery)
-                  : "--"}
-              </span>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-6">
-              <span>Huy động</span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {task.amountMobilized
-                  ? formatCurrency(task.amountMobilized)
-                  : "--"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-slate-400 dark:text-slate-200">
-            <button
-              type="button"
-              onClick={() => onEdit(task)}
-              className="rounded-lg p-2 transition hover:text-slate-700 dark:hover:text-slate-200"
-              aria-label="Sửa công việc"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onRemove(task.id)}
-              className="rounded-lg p-2 transition hover:text-rose-500"
-              aria-label="Xóa công việc"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
+        <div className="flex items-center justify-end gap-1.5 text-slate-400 dark:text-slate-200">
+          <button
+            type="button"
+            onClick={() => onEdit(task)}
+            className="rounded-lg p-2 transition hover:text-slate-700 dark:hover:text-slate-200"
+            aria-label="Sửa công việc"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(task.id)}
+            className="rounded-lg p-2 transition hover:text-rose-500"
+            aria-label="Xóa công việc"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>

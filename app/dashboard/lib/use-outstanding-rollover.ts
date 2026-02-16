@@ -7,14 +7,14 @@ import {
 type UseOutstandingRolloverParams = {
   startOfDay: number;
   todayKey: string;
-  monthNetOutstanding: number;
+  dayNetOutstanding: number;
   setOutstandingExtras: React.Dispatch<React.SetStateAction<OutstandingExtras>>;
 };
 
 export const useOutstandingRollover = ({
   startOfDay,
   todayKey,
-  monthNetOutstanding,
+  dayNetOutstanding,
   setOutstandingExtras,
 }: UseOutstandingRolloverParams) => {
   // Nếu user chưa nhập Dư nợ đầu ngày, tự động dùng Dư nợ thuần của ngày trước (nếu có lưu)
@@ -43,9 +43,10 @@ export const useOutstandingRollover = ({
     }
   }, [setOutstandingExtras, startOfDay, todayKey]);
 
-  // Luôn lưu lại Dư nợ thuần hiện tại để dùng làm Dư nợ đầu ngày cho ngày tiếp theo
+  // Luôn lưu lại Dư nợ thuần cuối ngày để dùng làm Dư nợ đầu ngày cho ngày tiếp theo.
+  // Chỉ cộng biến động trong ngày để tránh cộng lặp phần luy ke theo thang.
   useEffect(() => {
-    const outstandingToday = startOfDay + monthNetOutstanding;
+    const outstandingToday = startOfDay + dayNetOutstanding;
     if (!Number.isFinite(outstandingToday)) return;
     try {
       localStorage.setItem(
@@ -58,5 +59,5 @@ export const useOutstandingRollover = ({
     } catch {
       // ignore
     }
-  }, [monthNetOutstanding, startOfDay, todayKey]);
+  }, [dayNetOutstanding, startOfDay, todayKey]);
 };

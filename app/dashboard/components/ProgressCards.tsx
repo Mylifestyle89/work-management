@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { BadgeDollarSign, Banknote, Target } from "lucide-react";
 import type { TargetKey } from "@/lib/dashboard/types";
 import { formatCurrency, clampPercent } from "@/lib/dashboard/utils";
@@ -30,6 +31,8 @@ export function ProgressCards({
   monthLabel,
   onOpenTargetModal,
 }: ProgressCardsProps) {
+  const [showOutstandingDetails, setShowOutstandingDetails] = useState(false);
+
   const renderCard = (card: ProgressCardItem) => {
     const isCompact = card.key === "mobilized" || card.key === "serviceFee";
     const isOutstanding = card.key === "outstanding";
@@ -41,6 +44,8 @@ export function ProgressCards({
     const yearDenominatorOutstanding = card.target - startOfYear;
     const monthRemaining = monthDenominatorOutstanding - monthNumeratorOutstanding;
     const yearRemaining = yearDenominatorOutstanding - yearNumeratorOutstanding;
+    const positiveMonthRemaining = Math.max(0, monthRemaining);
+    const positiveYearRemaining = Math.max(0, yearRemaining);
     const monthProgressLabel = isOutstanding
       ? `${formatCurrency(monthNumeratorOutstanding)} / ${formatCurrency(monthDenominatorOutstanding)}`
       : `${formatCurrency(card.monthActual)} / ${formatCurrency(card.monthTarget)}`;
@@ -95,36 +100,44 @@ export function ProgressCards({
           </button>
         </div>
         {card.key === "outstanding" && (
-          <div className="mt-4 rounded-xl border border-slate-200/60 bg-slate-50/80 p-3 dark:border-slate-600 dark:bg-slate-800/80">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-300">
-              Chỉ tiêu dư nợ
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <div>
-                <p className="text-[10px] uppercase text-slate-400 dark:text-slate-400">
-                  Dư nợ đầu ngày
-                </p>
-                <p className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100">
-                  {formatCurrency(card.outstandingStartOfDay ?? 0)}
-                </p>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setShowOutstandingDetails((prev) => !prev)}
+              className="rounded-lg border border-slate-200/70 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition-all hover:shadow-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+            >
+              {showOutstandingDetails ? "Ẩn chi tiết dư nợ" : "Xem chi tiết dư nợ"}
+            </button>
+            {showOutstandingDetails ? (
+              <div className="mt-2 rounded-xl border border-slate-200/60 bg-slate-50/80 p-3 dark:border-slate-600 dark:bg-slate-800/80">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-400 dark:text-slate-400">
+                      Dư nợ đầu ngày
+                    </p>
+                    <p className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100">
+                      {formatCurrency(card.outstandingStartOfDay ?? 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-400 dark:text-slate-400">
+                      Dư nợ đầu tháng
+                    </p>
+                    <p className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100">
+                      {formatCurrency(card.outstandingStartOfMonth ?? 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-400 dark:text-slate-400">
+                      Dư nợ đầu năm
+                    </p>
+                    <p className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100">
+                      {formatCurrency(card.outstandingStartOfYear ?? 0)}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] uppercase text-slate-400 dark:text-slate-400">
-                  Dư nợ đầu tháng
-                </p>
-                <p className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100">
-                  {formatCurrency(card.outstandingStartOfMonth ?? 0)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase text-slate-400 dark:text-slate-400">
-                  Dư nợ đầu năm
-                </p>
-                <p className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100">
-                  {formatCurrency(card.outstandingStartOfYear ?? 0)}
-                </p>
-              </div>
-            </div>
+            ) : null}
           </div>
         )}
 
@@ -145,9 +158,11 @@ export function ProgressCards({
             <p className={`mt-0.5 text-slate-400 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-[11px]"}`}>
               Hoàn thành {percentMonth.toFixed(0)}%
             </p>
-            <p className={`mt-0.5 text-slate-400 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-[11px]"}`}>
-              Còn phải tăng {formatCurrency(Math.max(0, monthRemaining))}
-            </p>
+            {!isCompact ? (
+              <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-200">
+                Còn phải tăng {formatCurrency(positiveMonthRemaining)}
+              </p>
+            ) : null}
           </div>
           <div>
             <div className={`flex items-center justify-between text-slate-500 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-xs"}`}>
@@ -169,9 +184,11 @@ export function ProgressCards({
             <p className={`mt-0.5 text-slate-400 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-[11px]"}`}>
               Hoàn thành {percentYear.toFixed(0)}%
             </p>
-            <p className={`mt-0.5 text-slate-400 dark:text-slate-200 ${isCompact ? "text-[10px]" : "text-[11px]"}`}>
-              Còn phải tăng {formatCurrency(Math.max(0, yearRemaining))}
-            </p>
+            {!isCompact ? (
+              <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-200">
+                Còn phải tăng {formatCurrency(positiveYearRemaining)}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

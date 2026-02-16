@@ -55,6 +55,14 @@ const initialFormState: TaskFormState = {
   amountMobilized: "",
 };
 
+type DashboardView = "focus" | "analytics" | "tools";
+
+const VIEW_OPTIONS: Array<{ id: DashboardView; label: string; description: string }> = [
+  { id: "focus", label: "Focus", description: "Vận hành hằng ngày" },
+  { id: "analytics", label: "Analytics", description: "Theo dõi số liệu" },
+  { id: "tools", label: "Tools", description: "Công cụ quản trị" },
+];
+
 export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [totalsFromApi, setTotalsFromApi] = useState<TasksResponse["totals"] | null>(null);
@@ -81,7 +89,10 @@ export default function DashboardPage() {
     useState<Quadrant | null>(null);
   const [outstandingDisplayAdjustment, setOutstandingDisplayAdjustment] =
     useState(0);
+  const [activeView, setActiveView] = useState<DashboardView>("focus");
   const todayKey = useDayKey();
+  const secondaryButtonClass =
+    "rounded-lg border border-slate-200/70 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-all hover:shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700";
 
   const loadTasks = useCallback(async () => {
     try {
@@ -138,6 +149,21 @@ export default function DashboardPage() {
   const reminderItems = useMemo(() => {
     return buildReminderItems(tasks);
   }, [tasks]);
+
+  const analyticsSummary = useMemo(() => {
+    const total = tasks.length;
+    const completed = tasks.filter((task) => task.completed).length;
+    const inProgress = Math.max(0, total - completed);
+    const completionRate = total > 0 ? (completed / total) * 100 : 0;
+
+    return {
+      total,
+      completed,
+      inProgress,
+      reminderCount: reminderItems.length,
+      completionRate,
+    };
+  }, [reminderItems.length, tasks]);
 
   const progressSnapshot = useMemo(() => {
     const source = allTasksForProgress.length ? allTasksForProgress : tasks;
@@ -236,7 +262,7 @@ export default function DashboardPage() {
   useOutstandingRollover({
     startOfDay: outstandingExtras.startOfDay,
     todayKey,
-    monthNetOutstanding: progressSnapshot.monthTotals.netOutstanding,
+    dayNetOutstanding: progressSnapshot.dayTotals.netOutstanding,
     setOutstandingExtras,
   });
 
@@ -505,44 +531,229 @@ export default function DashboardPage() {
           onOpenTaskModal={openTaskModal}
           onOpenHistory={openHistory}
         />
-        <main className="flex-1 space-y-8 px-6 py-8 lg:px-10">
+        <main className="flex-1 space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
           <Header
             onOpenHistory={openHistory}
-            onOpenTaskModal={openTaskModal}
           />
 
-          <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-            <ReminderSection items={reminderItems} />
-            <ProgressCards
-              cards={progressCards}
-              monthLabel={progressSnapshot.monthLabel}
-              onOpenTargetModal={openTargetModal}
-            />
+          <section className="space-y-0">
+            <div className="sticky top-2 z-20">
+              <div className="rounded-t-2xl border-x border-t border-slate-200/70 bg-slate-100/90 px-2 pt-2 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-800/90">
+                <div className="flex items-end gap-1.5 overflow-x-auto pb-0.5">
+                {VIEW_OPTIONS.map((option) => {
+                  const isActive = activeView === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setActiveView(option.id)}
+                      className={`group relative min-w-[140px] overflow-hidden border px-3 py-2.5 text-left outline-none transition-all focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+                        isActive
+                          ? "z-10 -mb-px rounded-t-2xl border-slate-200 border-b-white bg-white text-slate-900 shadow-[0_-1px_0_rgba(255,255,255,0.85),0_2px_10px_rgba(15,23,42,0.06)] dark:border-slate-600 dark:border-b-slate-900 dark:bg-slate-900 dark:text-slate-100 dark:shadow-[0_-1px_0_rgba(255,255,255,0.06),0_2px_10px_rgba(2,6,23,0.55)]"
+                          : "translate-y-[1px] rounded-t-xl border-slate-200/70 bg-slate-50 text-slate-600 hover:translate-y-0 hover:bg-white hover:text-slate-800 dark:border-slate-600 dark:bg-slate-700/70 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                      }`}
+                      aria-pressed={isActive}
+                      aria-current={isActive ? "page" : undefined}
+                      title={option.description}
+                    >
+                      <span
+                        aria-hidden
+                        className={`pointer-events-none absolute inset-x-3 top-0 h-px rounded-full transition-all ${
+                          isActive
+                            ? "bg-gradient-to-r from-transparent via-blue-400/70 to-transparent dark:via-blue-300/60"
+                            : "bg-transparent group-hover:bg-gradient-to-r group-hover:from-transparent group-hover:via-slate-300/80 group-hover:to-transparent dark:group-hover:via-slate-500/70"
+                        }`}
+                      />
+                      <div className="mb-1 flex items-center gap-2">
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            isActive
+                              ? "bg-blue-500 dark:bg-blue-400"
+                              : "bg-slate-300 group-hover:bg-slate-400 dark:bg-slate-500 dark:group-hover:bg-slate-400"
+                          }`}
+                        />
+                        <p className="text-xs font-semibold">{option.label}</p>
+                      </div>
+                      <p
+                        className={`mt-0.5 text-[10px] ${
+                          isActive
+                            ? "text-slate-500 dark:text-slate-300"
+                            : "text-slate-400 dark:text-slate-400"
+                        }`}
+                      >
+                        {option.description}
+                      </p>
+                    </button>
+                  );
+                })}
+                </div>
+              </div>
+            </div>
+
+            <section
+              key={activeView}
+              className="-mt-px min-h-[320px] rounded-b-2xl border-x border-b border-t-0 border-slate-200/70 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 sm:p-5"
+            >
+            {activeView === "focus" ? (
+              <>
+              <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                <ReminderSection items={reminderItems} />
+                <aside className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-slate-900/50">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    Bảng điều phối trong ngày
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                    Ưu tiên thao tác nhanh trước khi xử lý ma trận công việc.
+                  </p>
+
+                  <div className="mt-4 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={openTaskModal}
+                      className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:shadow-md dark:from-blue-600 dark:to-indigo-700"
+                    >
+                      Thêm công việc mới
+                    </button>
+                  </div>
+                  <p className="mt-4 text-xs text-slate-500 dark:text-slate-300">
+                    Theo dõi KPI và chỉ tiêu chi tiết trong tab Analytics.
+                  </p>
+                </aside>
+              </section>
+
+              <EisenhowerSection
+                tasks={tasks}
+                getOrderedQuadrantTasks={getOrderedQuadrantTasks}
+                draggingTaskId={draggingTaskId}
+                draggingFromQuadrant={draggingFromQuadrant}
+                onMoveToQuadrant={moveTaskToQuadrant}
+                onReorder={reorderWithinQuadrant}
+                onToggleCompleted={toggleCompleted}
+                onEdit={startEditTask}
+                onRemove={removeTask}
+                setDraggingTaskId={setDraggingTaskId}
+                setDraggingFromQuadrant={setDraggingFromQuadrant}
+              />
+              </>
+            ) : null}
+
+            {activeView === "analytics" ? (
+              <>
+              <section className="grid gap-4 lg:grid-cols-[1.5fr_0.5fr]">
+                <div className="rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-slate-900/50">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                        Chỉ tiêu trọng tâm
+                      </h3>
+                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">
+                        Theo dõi kết quả tháng và năm theo từng nhóm KPI.
+                      </p>
+                    </div>
+                  </div>
+                  <ProgressCards
+                    cards={progressCards}
+                    monthLabel={progressSnapshot.monthLabel}
+                    onOpenTargetModal={openTargetModal}
+                  />
+                </div>
+
+                <aside className="h-fit rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm lg:sticky lg:top-24 dark:border-slate-700 dark:bg-slate-800 dark:shadow-slate-900/50">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    Snapshot hôm nay
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                    Điểm nhanh để đánh giá tiến độ vận hành.
+                  </p>
+                  <div className="mt-4 space-y-2.5 text-xs">
+                    <div className="rounded-lg border border-slate-200/70 bg-slate-50 px-3 py-2 dark:border-slate-600 dark:bg-slate-700/50">
+                      <p className="text-slate-500 dark:text-slate-300">Tổng công việc</p>
+                      <p className="mt-0.5 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                        {analyticsSummary.total}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-lg border border-slate-200/70 bg-slate-50 px-3 py-2 dark:border-slate-600 dark:bg-slate-700/50">
+                        <p className="text-slate-500 dark:text-slate-300">Đang xử lý</p>
+                        <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">
+                          {analyticsSummary.inProgress}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200/70 bg-slate-50 px-3 py-2 dark:border-slate-600 dark:bg-slate-700/50">
+                        <p className="text-slate-500 dark:text-slate-300">Hoàn thành</p>
+                        <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">
+                          {analyticsSummary.completed}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-200/70 bg-slate-50 px-3 py-2 dark:border-slate-600 dark:bg-slate-700/50">
+                      <p className="text-slate-500 dark:text-slate-300">Tỷ lệ hoàn thành</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">
+                        {analyticsSummary.completionRate.toFixed(0)}%
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200/70 bg-slate-50 px-3 py-2 dark:border-slate-600 dark:bg-slate-700/50">
+                      <p className="text-slate-500 dark:text-slate-300">Nhắc việc đang có</p>
+                      <p className="mt-0.5 font-semibold text-slate-800 dark:text-slate-100">
+                        {analyticsSummary.reminderCount}
+                      </p>
+                    </div>
+                  </div>
+                </aside>
+              </section>
+
+              <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                <OverviewSection tasks={tasks} />
+                <TaskChart tasks={tasks} />
+              </section>
+              </>
+            ) : null}
+
+            {activeView === "tools" ? (
+              <>
+              <section className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-slate-900/50">
+                  <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+                    Công cụ thao tác
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                    Truy cập nhanh các thao tác quản trị thường dùng.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => exportExcel(tasks)}
+                      className={secondaryButtonClass}
+                    >
+                      Xuất Excel (danh sách hiện tại)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => exportPdf(tasks)}
+                      className={secondaryButtonClass}
+                    >
+                      Xuất PDF (danh sách hiện tại)
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:shadow-slate-900/50">
+                  <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+                    Công cụ chỉ tiêu
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                    Chỉnh chỉ tiêu trực tiếp trong tab Analytics để đảm bảo ngữ cảnh dữ liệu.
+                  </p>
+                  <p className="mt-4 rounded-lg border border-slate-200/70 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-600 dark:bg-slate-700/50 dark:text-slate-200">
+                    Mở tab Analytics để xem KPI và cập nhật chỉ tiêu.
+                  </p>
+                </div>
+              </section>
+
+              <LoanRateCard />
+              </>
+            ) : null}
+            </section>
           </section>
-
-          <EisenhowerSection
-            tasks={tasks}
-            getOrderedQuadrantTasks={getOrderedQuadrantTasks}
-            draggingTaskId={draggingTaskId}
-            draggingFromQuadrant={draggingFromQuadrant}
-            onMoveToQuadrant={moveTaskToQuadrant}
-            onReorder={reorderWithinQuadrant}
-            onToggleCompleted={toggleCompleted}
-            onEdit={startEditTask}
-            onRemove={removeTask}
-            setDraggingTaskId={setDraggingTaskId}
-            setDraggingFromQuadrant={setDraggingFromQuadrant}
-          />
-
-          <section
-            id="overview"
-            className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]"
-          >
-            <OverviewSection tasks={tasks} />
-            <TaskChart tasks={tasks} />
-          </section>
-
-          <LoanRateCard />
         </main>
       </div>
 
